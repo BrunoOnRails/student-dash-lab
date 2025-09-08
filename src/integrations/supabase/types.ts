@@ -14,7 +14,153 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      grades: {
+        Row: {
+          assessment_name: string
+          assessment_type: string
+          created_at: string
+          date_assigned: string | null
+          grade: number
+          id: string
+          max_grade: number
+          student_id: string
+        }
+        Insert: {
+          assessment_name: string
+          assessment_type: string
+          created_at?: string
+          date_assigned?: string | null
+          grade: number
+          id?: string
+          max_grade?: number
+          student_id: string
+        }
+        Update: {
+          assessment_name?: string
+          assessment_type?: string
+          created_at?: string
+          date_assigned?: string | null
+          grade?: number
+          id?: string
+          max_grade?: number
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grades_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          course: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          student_id: string
+          subject_id: string
+        }
+        Insert: {
+          course?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          student_id: string
+          subject_id: string
+        }
+        Update: {
+          course?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          student_id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subjects: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          professor_id: string
+          semester: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          professor_id: string
+          semester: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          professor_id?: string
+          semester?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_professor_id_fkey"
+            columns: ["professor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
