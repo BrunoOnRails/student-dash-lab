@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, ArrowLeft, Upload } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Plus, Edit, Trash2, Upload } from 'lucide-react';
+import Header from '@/components/Header';
 
 interface Student {
   id: string;
@@ -209,17 +209,12 @@ const Students = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate('/')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">Alunos</h1>
-              <p className="text-muted-foreground">Gerencie os alunos das suas disciplinas</p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold">Alunos</h1>
+            <p className="text-muted-foreground">Gerencie os alunos das suas disciplinas</p>
           </div>
           
           <div className="flex space-x-2">

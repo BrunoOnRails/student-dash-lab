@@ -7,6 +7,7 @@ import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import Header from '@/components/Header';
 
 interface StudentData {
   name: string;
@@ -189,7 +190,9 @@ export default function UploadData() {
   });
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="container mx-auto py-8 px-4">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Importar Dados</h1>
@@ -351,6 +354,7 @@ export default function UploadData() {
           </CardContent>
         </Card>
       </div>
+    </div>
     </div>
   );
 }

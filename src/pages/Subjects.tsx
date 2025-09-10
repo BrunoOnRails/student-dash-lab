@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Plus, Edit, Trash2 } from 'lucide-react';
+import Header from '@/components/Header';
 
 interface Subject {
   id: string;
@@ -173,16 +173,12 @@ const Subjects = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate('/')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">Minhas Disciplinas</h1>
-              <p className="text-muted-foreground">Gerencie suas disciplinas e anos letivos</p>
+          <div>
+            <h1 className="text-3xl font-bold">Minhas Disciplinas</h1>
+            <p className="text-muted-foreground">Gerencie suas disciplinas e anos letivos</p>
             </div>
           </div>
           
@@ -316,8 +312,9 @@ const Subjects = () => {
                 </TableBody>
               </Table>
             )}
-          </CardContent>
+           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );
