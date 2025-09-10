@@ -9,6 +9,9 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import UploadData from "./pages/UploadData";
+import Subjects from "./pages/Subjects";
+import Students from "./pages/Students";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +33,21 @@ const App = () => {
               <Route path="/upload" element={
                 <ProtectedRoute>
                   <UploadData />
+                </ProtectedRoute>
+              } />
+              <Route path="/subjects" element={
+                <ProtectedRoute>
+                  <Subjects />
+                </ProtectedRoute>
+              } />
+              <Route path="/students" element={
+                <ProtectedRoute>
+                  <Students />
+                </ProtectedRoute>
+              } />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

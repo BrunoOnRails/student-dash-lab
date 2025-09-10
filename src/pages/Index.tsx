@@ -68,7 +68,7 @@ const Index = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">Ver Disciplinas</Button>
+              <Button className="w-full" onClick={() => navigate('/subjects')}>Ver Disciplinas</Button>
             </CardContent>
           </Card>
 
@@ -83,9 +83,12 @@ const Index = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" variant="outline" onClick={() => navigate('/upload')}>
-                Carregar Planilha
-              </Button>
+              <div className="space-y-2">
+                <Button className="w-full" onClick={() => navigate('/students')}>Gerenciar Alunos</Button>
+                <Button className="w-full" variant="outline" onClick={() => navigate('/upload')}>
+                  Carregar Planilha
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -100,8 +103,8 @@ const Index = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" variant="outline">
-                Ver Relatórios
+              <Button className="w-full" onClick={() => navigate('/dashboard')}>
+                Ver Dashboard
               </Button>
             </CardContent>
           </Card>
