@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +30,8 @@ export default function UploadData() {
   const [uploadedData, setUploadedData] = useState<any[]>([]);
   const [dataType, setDataType] = useState<'students' | 'grades' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'students' | 'grades' | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -289,18 +292,24 @@ export default function UploadData() {
                 <div className="mt-6 flex gap-4">
                   {dataType === 'students' && (
                     <Button 
-                      onClick={() => processStudents('temp-subject-id')} 
+                      onClick={() => {
+                        setPendingAction('students');
+                        setShowConfirmDialog(true);
+                      }} 
                       disabled={isProcessing}
                     >
-                      {isProcessing ? 'Importando...' : 'Importar Alunos'}
+                      Salvar Alunos
                     </Button>
                   )}
                   {dataType === 'grades' && (
                     <Button 
-                      onClick={processGrades} 
+                      onClick={() => {
+                        setPendingAction('grades');
+                        setShowConfirmDialog(true);
+                      }} 
                       disabled={isProcessing}
                     >
-                      {isProcessing ? 'Importando...' : 'Importar Notas'}
+                      Salvar Notas
                     </Button>
                   )}
                   <Button 
@@ -317,6 +326,44 @@ export default function UploadData() {
             </CardContent>
           </Card>
         )}
+
+        {/* Confirmation Dialog */}
+        <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar Importação</DialogTitle>
+              <DialogDescription>
+                Deseja salvar os {uploadedData.length} {pendingAction === 'students' ? 'alunos' : 'notas'} no banco de dados?
+                Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  setPendingAction(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={async () => {
+                  setShowConfirmDialog(false);
+                  if (pendingAction === 'students') {
+                    await processStudents('temp-subject-id');
+                  } else if (pendingAction === 'grades') {
+                    await processGrades();
+                  }
+                  setPendingAction(null);
+                }}
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Salvando...' : 'Confirmar'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Instructions */}
         <Card>
