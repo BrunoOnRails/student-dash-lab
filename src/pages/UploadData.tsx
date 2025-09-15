@@ -221,36 +221,57 @@ export default function UploadData() {
     });
   };
 
-  const processStudents = async (subjectId: string) => {
+  const processStudents = async () => {
     setIsProcessing(true);
     try {
+      // Get user's subjects to save students to the first available subject
+      const { data: subjects } = await supabase
+        .from('subjects')
+        .select('id')
+        .eq('professor_id', user?.id)
+        .limit(1);
+
+      if (!subjects || subjects.length === 0) {
+        throw new Error('Você precisa criar uma disciplina primeiro');
+      }
+
       const studentsToInsert: StudentData[] = uploadedData.map(row => ({
-        name: row.name || row.Name || row.Nome || '',
-        email: row.email || row.Email || row['E-mail'] || '',
-        student_id: String(row.student_id || row.Student_ID || row.Matricula || row.matrícula || ''),
-        course: row.course || row.Course || row.Curso || '',
+        name: String(row.Nome || row.Name || row.name || '').trim(),
+        email: String(row['E-mail'] || row.Email || row.email || '').trim(),
+        student_id: String(row.Matricula || row.Student_ID || row.student_id || row.matrícula || '').trim(),
+        course: String(row.Curso || row.Course || row.course || '').trim(),
       }));
+
+      // Filter out empty records
+      const validStudents = studentsToInsert.filter(student => 
+        student.name && student.student_id
+      );
+
+      if (validStudents.length === 0) {
+        throw new Error('Nenhum aluno válido encontrado. Verifique se as colunas Nome e Matricula estão preenchidas.');
+      }
 
       const { data, error } = await supabase
         .from('students')
-        .insert(studentsToInsert.map(student => ({
+        .insert(validStudents.map(student => ({
           ...student,
-          subject_id: subjectId
+          subject_id: subjects[0].id
         })));
 
       if (error) throw error;
 
       toast({
         title: "Alunos importados com sucesso",
-        description: `${studentsToInsert.length} alunos foram adicionados`,
+        description: `${validStudents.length} alunos foram adicionados`,
       });
       
       setUploadedData([]);
       setDataType(null);
     } catch (error) {
+      console.error('Error importing students:', error);
       toast({
         title: "Erro ao importar alunos",
-        description: "Verifique os dados e tente novamente",
+        description: error instanceof Error ? error.message : "Verifique os dados e tente novamente",
         variant: "destructive",
       });
     } finally {
@@ -538,7 +559,7 @@ export default function UploadData() {
                 onClick={async () => {
                   setShowConfirmDialog(false);
                   if (pendingAction === 'students') {
-                    await processStudents('temp-subject-id');
+                    await processStudents();
                   } else if (pendingAction === 'grades') {
                     await processGrades();
                   }
