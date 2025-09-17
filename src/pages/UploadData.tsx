@@ -289,18 +289,61 @@ export default function UploadData() {
         }
       }
 
-      const { data, error } = await supabase
+      // Check which students already exist
+      const studentIds = validStudents.map(s => s.student_id);
+      const { data: existingStudents } = await supabase
         .from('students')
-        .insert(validStudents.map(student => ({
-          ...student,
-          subject_id: subjects[0].id
-        })));
+        .select('student_id, id, name, email')
+        .eq('subject_id', subjects[0].id)
+        .in('student_id', studentIds);
 
-      if (error) throw error;
+      const existingStudentMap = new Map(existingStudents?.map(s => [s.student_id, s]) || []);
+      
+      const newStudents = validStudents.filter(student => !existingStudentMap.has(student.student_id));
+      const studentsToUpdate = validStudents.filter(student => existingStudentMap.has(student.student_id));
+
+      let insertedCount = 0;
+      let updatedCount = 0;
+
+      // Insert new students
+      if (newStudents.length > 0) {
+        const { error: insertError } = await supabase
+          .from('students')
+          .insert(newStudents.map(student => ({
+            ...student,
+            subject_id: subjects[0].id
+          })));
+
+        if (insertError) throw insertError;
+        insertedCount = newStudents.length;
+      }
+
+      // Update existing students
+      if (studentsToUpdate.length > 0) {
+        for (const student of studentsToUpdate) {
+          const existingStudent = existingStudentMap.get(student.student_id);
+          if (existingStudent) {
+            const { error: updateError } = await supabase
+              .from('students')
+              .update({
+                name: student.name,
+                email: student.email,
+                course: student.course
+              })
+              .eq('id', existingStudent.id);
+
+            if (updateError) throw updateError;
+            updatedCount++;
+          }
+        }
+      }
+
+      const totalProcessed = insertedCount + updatedCount;
+      const ignoredCount = validStudents.length - totalProcessed;
 
       toast({
-        title: "Alunos importados com sucesso",
-        description: `${validStudents.length} alunos foram adicionados`,
+        title: "Alunos processados com sucesso",
+        description: `${insertedCount} novos, ${updatedCount} atualizados${ignoredCount > 0 ? `, ${ignoredCount} ignorados` : ''}`,
       });
       
       setUploadedData([]);
@@ -353,15 +396,71 @@ export default function UploadData() {
           date_assigned: g.date_assigned || new Date().toISOString().split('T')[0],
         }));
 
-      const { error } = await supabase
+      // Check which grades already exist
+      const gradeKeys = validGrades.map(g => 
+        `${g.student_id}_${g.assessment_name}_${g.assessment_type}_${g.date_assigned}`
+      );
+      
+      const { data: existingGrades } = await supabase
         .from('grades')
-        .insert(validGrades);
+        .select('student_id, assessment_name, assessment_type, date_assigned, id, grade')
+        .in('student_id', validGrades.map(g => g.student_id));
 
-      if (error) throw error;
+      const existingGradeMap = new Map(
+        existingGrades?.map(g => [
+          `${g.student_id}_${g.assessment_name}_${g.assessment_type}_${g.date_assigned}`,
+          g
+        ]) || []
+      );
+
+      const newGrades = validGrades.filter(grade => 
+        !existingGradeMap.has(`${grade.student_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`)
+      );
+      
+      const gradesToUpdate = validGrades.filter(grade => 
+        existingGradeMap.has(`${grade.student_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`)
+      );
+
+      let insertedCount = 0;
+      let updatedCount = 0;
+
+      // Insert new grades
+      if (newGrades.length > 0) {
+        const { error: insertError } = await supabase
+          .from('grades')
+          .insert(newGrades);
+
+        if (insertError) throw insertError;
+        insertedCount = newGrades.length;
+      }
+
+      // Update existing grades
+      if (gradesToUpdate.length > 0) {
+        for (const grade of gradesToUpdate) {
+          const gradeKey = `${grade.student_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`;
+          const existingGrade = existingGradeMap.get(gradeKey);
+          
+          if (existingGrade && existingGrade.grade !== grade.grade) {
+            const { error: updateError } = await supabase
+              .from('grades')
+              .update({
+                grade: grade.grade,
+                max_grade: grade.max_grade
+              })
+              .eq('id', existingGrade.id);
+
+            if (updateError) throw updateError;
+            updatedCount++;
+          }
+        }
+      }
+
+      const totalProcessed = insertedCount + updatedCount;
+      const ignoredCount = validGrades.length - totalProcessed;
 
       toast({
-        title: "Notas importadas com sucesso",
-        description: `${validGrades.length} notas foram adicionadas`,
+        title: "Notas processadas com sucesso",
+        description: `${insertedCount} novas, ${updatedCount} atualizadas${ignoredCount > 0 ? `, ${ignoredCount} ignoradas` : ''}`,
       });
       
       setUploadedData([]);
