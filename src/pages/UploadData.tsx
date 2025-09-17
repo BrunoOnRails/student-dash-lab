@@ -259,7 +259,7 @@ export default function UploadData() {
 
       if (coursesInData.length > 0) {
         // Check which courses already exist
-        const { data: existingCourses } = await supabase
+        const { data: existingCourses } = await (supabase as any)
           .from('courses')
           .select('name')
           .in('name', coursesInData);
@@ -269,7 +269,7 @@ export default function UploadData() {
 
         // Create new courses
         if (newCourses.length > 0) {
-          const { error: courseError } = await supabase
+          const { error: courseError } = await (supabase as any)
             .from('courses')
             .insert(newCourses.map(name => ({ name })));
 

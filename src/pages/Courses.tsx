@@ -66,24 +66,44 @@ const Courses = () => {
 
   const fetchCourses = async () => {
     try {
-      // Get courses with student and subject counts
-      const { data: coursesData, error } = await supabase
+      // Get courses first
+      const { data: coursesData, error } = await (supabase as any)
         .from('courses')
-        .select(`
-          *,
-          students:students(count),
-          subjects:subjects(count)
-        `);
+        .select('*')
+        .order('name');
 
       if (error) throw error;
 
-      const coursesWithCounts = coursesData?.map(course => ({
-        ...course,
-        _count: {
-          students: course.students?.[0]?.count || 0,
-          subjects: course.subjects?.[0]?.count || 0
-        }
-      })) || [];
+      // Get counts for each course
+      const coursesWithCounts = await Promise.all(
+        (coursesData || []).map(async (course: any) => {
+          // Count students through subjects
+          const { data: subjectsData } = await supabase
+            .from('subjects')
+            .select('id')
+            .eq('course_id', course.id);
+
+          const subjectIds = subjectsData?.map(s => s.id) || [];
+          
+          // Count students in these subjects
+          let studentCount = 0;
+          if (subjectIds.length > 0) {
+            const { data: studentsData } = await supabase
+              .from('students')
+              .select('id')
+              .in('subject_id', subjectIds);
+            studentCount = studentsData?.length || 0;
+          }
+
+          return {
+            ...course,
+            _count: {
+              students: studentCount,
+              subjects: subjectsData?.length || 0
+            }
+          };
+        })
+      );
 
       setCourses(coursesWithCounts);
     } catch (error) {
@@ -128,7 +148,7 @@ const Courses = () => {
 
     try {
       if (editingCourse) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('courses')
           .update({
             name: formData.name.trim(),
@@ -143,7 +163,7 @@ const Courses = () => {
           description: "Curso foi atualizado com sucesso",
         });
       } else {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('courses')
           .insert({
             name: formData.name.trim(),
@@ -225,7 +245,7 @@ const Courses = () => {
 
   const handleDelete = async (courseId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('courses')
         .delete()
         .eq('id', courseId);
@@ -306,7 +326,7 @@ const Courses = () => {
         throw new Error('Nenhum curso válido encontrado. Verifique se a coluna Nome está preenchida.');
       }
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('courses')
         .insert(coursesToInsert);
 

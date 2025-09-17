@@ -48,7 +48,7 @@ const CourseDetails = () => {
   const fetchCourseDetails = async () => {
     try {
       // Fetch course details
-      const { data: courseData, error: courseError } = await supabase
+      const { data: courseData, error: courseError } = await (supabase as any)
         .from('courses')
         .select('*')
         .eq('id', courseId)
