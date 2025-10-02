@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { validatePassword } from '@/utils/passwordValidation';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -74,14 +75,23 @@ const Auth = () => {
       return;
     }
 
+    // Verificar se o email já existe
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
+    
+    if (existingUser) {
+      setError('Este email já está cadastrado. Tente fazer login.');
+      setLoading(false);
+      return;
+    }
+
     const { error } = await signUp(email, password, fullName);
     
     if (error) {
-      if (error.message.includes('User already registered')) {
-        setError('Este email já está cadastrado. Tente fazer login.');
-      } else {
-        setError(error.message);
-      }
+      setError(error.message);
     } else {
       toast({
         title: 'Cadastro realizado com sucesso!',
