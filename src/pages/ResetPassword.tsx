@@ -8,29 +8,53 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { validatePassword } from '@/utils/passwordValidation';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const ResetPassword = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [processingToken, setProcessingToken] = useState(true);
+  const [tokenError, setTokenError] = useState('');
   const [error, setError] = useState('');
-  const { updatePassword, session } = useAuth();
+  const { updatePassword } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Verifica se há uma sessão de recuperação válida
-    if (!session) {
-      toast({
-        title: 'Link inválido ou expirado',
-        description: 'Por favor, solicite um novo link de redefinição de senha.',
-        variant: 'destructive',
-      });
-      navigate('/auth');
-    }
-  }, [session, navigate, toast]);
+    const processRecoveryToken = async () => {
+      try {
+        // Captura os parâmetros da URL
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const error = hashParams.get('error');
+        const errorDescription = hashParams.get('error_description');
+        
+        // Verifica se há erro na URL
+        if (error) {
+          setTokenError(errorDescription || 'Link inválido ou expirado');
+          setProcessingToken(false);
+          return;
+        }
+
+        // Verifica se já há uma sessão válida
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          setTokenError('Link inválido ou expirado. Por favor, solicite um novo link de redefinição de senha.');
+        }
+        
+        setProcessingToken(false);
+      } catch (err) {
+        console.error('Error processing recovery token:', err);
+        setTokenError('Erro ao processar o link de recuperação');
+        setProcessingToken(false);
+      }
+    };
+
+    processRecoveryToken();
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +83,11 @@ const ResetPassword = () => {
     const { error } = await updatePassword(newPassword);
     
     if (error) {
-      setError(error.message);
+      if (error.message.includes('session_not_found') || error.message.includes('token')) {
+        setError('Sessão expirada. Por favor, solicite um novo link de redefinição de senha.');
+      } else {
+        setError(error.message);
+      }
     } else {
       toast({
         title: 'Senha redefinida com sucesso!',
@@ -71,7 +99,54 @@ const ResetPassword = () => {
     setLoading(false);
   };
 
+  const handleRequestNewLink = () => {
+    navigate('/auth');
+  };
+
   const passwordValidation = validatePassword(newPassword);
+
+  // Mostra loading enquanto processa o token
+  if (processingToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Processando link de recuperação...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Mostra erro se o token for inválido
+  if (tokenError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold text-destructive">Link Inválido</CardTitle>
+            <CardDescription>
+              {tokenError}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                Os links de redefinição de senha expiram em 1 hora por motivos de segurança.
+              </AlertDescription>
+            </Alert>
+            <Button 
+              onClick={handleRequestNewLink} 
+              className="w-full"
+            >
+              Solicitar Novo Link
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
