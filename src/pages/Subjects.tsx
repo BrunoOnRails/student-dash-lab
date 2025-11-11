@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Users } from 'lucide-react';
 import Header from '@/components/Header';
 
 interface Subject {
@@ -19,11 +19,20 @@ interface Subject {
   semester: number;
   year: number;
   created_at: string;
+  student_count?: number;
   course?: {
     id: string;
     name: string;
     code?: string;
   };
+}
+
+interface Student {
+  id: string;
+  name: string;
+  student_id: string;
+  email?: string;
+  course?: string;
 }
 
 interface Course {
@@ -41,6 +50,9 @@ const Subjects = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [viewingStudents, setViewingStudents] = useState<Subject | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -66,14 +78,21 @@ const Subjects = () => {
             id,
             name,
             code
-          )
+          ),
+          students(count)
         `)
         .eq('professor_id', user?.id)
         .order('year', { ascending: false })
         .order('semester', { ascending: false });
 
       if (error) throw error;
-      setSubjects(data || []);
+      
+      const subjectsWithCount = data?.map(subject => ({
+        ...subject,
+        student_count: subject.students?.[0]?.count || 0
+      })) || [];
+      
+      setSubjects(subjectsWithCount);
     } catch (error) {
       toast({
         title: "Erro",
@@ -196,6 +215,30 @@ const Subjects = () => {
   const resetForm = () => {
     setFormData({ name: '', code: '', semester: '', year: new Date().getFullYear().toString(), course_id: '' });
     setEditingSubject(null);
+  };
+
+  const handleViewStudents = async (subject: Subject) => {
+    setViewingStudents(subject);
+    setLoadingStudents(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('subject_id', subject.id)
+        .order('name');
+
+      if (error) throw error;
+      setStudents(data || []);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar alunos",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingStudents(false);
+    }
   };
 
   if (loading) {
@@ -341,6 +384,7 @@ const Subjects = () => {
                     <TableHead>Curso</TableHead>
                     <TableHead>Semestre</TableHead>
                     <TableHead>Ano</TableHead>
+                    <TableHead>Alunos</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -362,6 +406,17 @@ const Subjects = () => {
                       <TableCell>{subject.semester}º</TableCell>
                       <TableCell>{subject.year}</TableCell>
                       <TableCell>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleViewStudents(subject)}
+                          className="gap-1"
+                        >
+                          <Users className="h-4 w-4" />
+                          {subject.student_count || 0}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex space-x-2">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(subject)}>
                             <Edit className="h-4 w-4" />
@@ -379,6 +434,48 @@ const Subjects = () => {
            </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!viewingStudents} onOpenChange={() => setViewingStudents(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Alunos - {viewingStudents?.name}</DialogTitle>
+            <DialogDescription>
+              {viewingStudents?.code} | {viewingStudents?.semester}º Semestre {viewingStudents?.year}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {loadingStudents ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : students.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Nenhum aluno matriculado nesta disciplina</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Matrícula</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Curso</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {students.map((student) => (
+                  <TableRow key={student.id}>
+                    <TableCell className="font-medium">{student.student_id}</TableCell>
+                    <TableCell>{student.name}</TableCell>
+                    <TableCell>{student.email || '-'}</TableCell>
+                    <TableCell>{student.course || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
