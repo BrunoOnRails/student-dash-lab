@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/hooks/useAuth';
-import { BarChart3, LogOut, Menu, BookOpen, Users, Upload, Home, FileText } from 'lucide-react';
+import { BarChart3, LogOut, Menu, BookOpen, Users, Upload, Home, FileText, PieChart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
@@ -25,6 +25,7 @@ const Header = () => {
     { label: 'Cursos', icon: BookOpen, path: '/courses' },
     { label: 'Carregar Planilha', icon: Upload, path: '/upload' },
     { label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
+    { label: 'Distribuição de Pontos', icon: PieChart, path: '/assessment-distribution' },
   ];
 
   return (

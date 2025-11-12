@@ -16,6 +16,7 @@ import Courses from "./pages/Courses";
 import CourseDetails from "./pages/CourseDetails";
 import Dashboard from "./pages/Dashboard";
 import Grades from "./pages/Grades";
+import AssessmentDistribution from "./pages/AssessmentDistribution";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,11 @@ const App = () => {
               <Route path="/grades" element={
                 <ProtectedRoute>
                   <Grades />
+                </ProtectedRoute>
+              } />
+              <Route path="/assessment-distribution" element={
+                <ProtectedRoute>
+                  <AssessmentDistribution />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
