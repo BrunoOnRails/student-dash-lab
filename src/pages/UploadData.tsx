@@ -363,12 +363,19 @@ export default function UploadData() {
   const processGrades = async () => {
     setIsProcessing(true);
     try {
+      // Helper function to convert Brazilian decimal format (comma) to JavaScript format (dot)
+      const parseDecimal = (value: any): number => {
+        if (!value) return 0;
+        const str = String(value).replace(',', '.');
+        return Number(str) || 0;
+      };
+
       const gradesToInsert: Partial<GradeData>[] = uploadedData.map(row => ({
         student_id: row.student_id || row.Student_ID || row.Matricula,
         assessment_type: row.assessment_type || row.Assessment_Type || row.Tipo || row.tipo || 'Prova',
         assessment_name: row.assessment_name || row.Assessment_Name || row.Avaliacao || row.avaliacao || '',
-        grade: Number(row.grade || row.Grade || row.Nota || row.nota || 0),
-        max_grade: Number(row.max_grade || row.Max_Grade || row.Nota_Maxima || row.nota_maxima || 10),
+        grade: parseDecimal(row.grade || row.Grade || row.Nota || row.nota),
+        max_grade: parseDecimal(row.max_grade || row.Max_Grade || row.Nota_Maxima || row.nota_maxima || 10),
         date_assigned: row.date_assigned || row.Date_Assigned || row.Data || row.data || new Date().toISOString().split('T')[0],
       }));
 
