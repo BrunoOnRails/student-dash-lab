@@ -63,6 +63,7 @@ const Students = () => {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [loadingGrades, setLoadingGrades] = useState(false);
   const [isAddGradeOpen, setIsAddGradeOpen] = useState(false);
+  const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
   const [gradeFormData, setGradeFormData] = useState({
     assessment_type: '',
     assessment_name: '',
@@ -254,23 +255,45 @@ const Students = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('grades')
-        .insert([{
-          student_id: viewingGrades.id,
-          assessment_type: gradeFormData.assessment_type,
-          assessment_name: gradeFormData.assessment_name,
-          grade: parseFloat(gradeFormData.grade),
-          max_grade: parseFloat(gradeFormData.max_grade),
-          date_assigned: gradeFormData.date_assigned || null
-        }]);
+      if (editingGrade) {
+        // Update existing grade
+        const { error } = await supabase
+          .from('grades')
+          .update({
+            assessment_type: gradeFormData.assessment_type,
+            assessment_name: gradeFormData.assessment_name,
+            grade: parseFloat(gradeFormData.grade),
+            max_grade: parseFloat(gradeFormData.max_grade),
+            date_assigned: gradeFormData.date_assigned || null
+          })
+          .eq('id', editingGrade.id);
 
-      if (error) throw error;
-      
-      toast({
-        title: "Sucesso",
-        description: "Nota lançada com sucesso"
-      });
+        if (error) throw error;
+        
+        toast({
+          title: "Sucesso",
+          description: "Nota atualizada com sucesso"
+        });
+      } else {
+        // Insert new grade
+        const { error } = await supabase
+          .from('grades')
+          .insert([{
+            student_id: viewingGrades.id,
+            assessment_type: gradeFormData.assessment_type,
+            assessment_name: gradeFormData.assessment_name,
+            grade: parseFloat(gradeFormData.grade),
+            max_grade: parseFloat(gradeFormData.max_grade),
+            date_assigned: gradeFormData.date_assigned || null
+          }]);
+
+        if (error) throw error;
+        
+        toast({
+          title: "Sucesso",
+          description: "Nota lançada com sucesso"
+        });
+      }
       
       setGradeFormData({
         assessment_type: '',
@@ -279,12 +302,13 @@ const Students = () => {
         max_grade: '10',
         date_assigned: new Date().toISOString().split('T')[0]
       });
+      setEditingGrade(null);
       setIsAddGradeOpen(false);
       handleViewGrades(viewingGrades);
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Erro ao lançar nota",
+        description: editingGrade ? "Erro ao atualizar nota" : "Erro ao lançar nota",
         variant: "destructive"
       });
     }
@@ -316,6 +340,29 @@ const Students = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleEditGrade = (grade: Grade) => {
+    setEditingGrade(grade);
+    setGradeFormData({
+      assessment_type: grade.assessment_type,
+      assessment_name: grade.assessment_name,
+      grade: grade.grade.toString(),
+      max_grade: grade.max_grade.toString(),
+      date_assigned: grade.date_assigned || new Date().toISOString().split('T')[0]
+    });
+    setIsAddGradeOpen(true);
+  };
+
+  const resetGradeForm = () => {
+    setGradeFormData({
+      assessment_type: '',
+      assessment_name: '',
+      grade: '',
+      max_grade: '10',
+      date_assigned: new Date().toISOString().split('T')[0]
+    });
+    setEditingGrade(null);
   };
 
   if (loading) {
@@ -521,7 +568,10 @@ const Students = () => {
             </DialogHeader>
 
             <div className="space-y-4">
-              <Dialog open={isAddGradeOpen} onOpenChange={setIsAddGradeOpen}>
+              <Dialog open={isAddGradeOpen} onOpenChange={(open) => {
+                setIsAddGradeOpen(open);
+                if (!open) resetGradeForm();
+              }}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -530,9 +580,9 @@ const Students = () => {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Lançar Nova Nota</DialogTitle>
+                    <DialogTitle>{editingGrade ? 'Editar Nota' : 'Lançar Nova Nota'}</DialogTitle>
                     <DialogDescription>
-                      Adicione uma nova nota para {viewingGrades?.name}
+                      {editingGrade ? `Edite a nota de ${viewingGrades?.name}` : `Adicione uma nova nota para ${viewingGrades?.name}`}
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleAddGrade} className="space-y-4">
@@ -604,7 +654,7 @@ const Students = () => {
                         Cancelar
                       </Button>
                       <Button type="submit">
-                        Lançar Nota
+                        {editingGrade ? 'Atualizar Nota' : 'Lançar Nota'}
                       </Button>
                     </div>
                   </form>
@@ -643,9 +693,14 @@ const Students = () => {
                           {grade.date_assigned ? new Date(grade.date_assigned).toLocaleDateString('pt-BR') : '-'}
                         </TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => handleDeleteGrade(grade.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEditGrade(grade)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDeleteGrade(grade.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
