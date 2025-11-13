@@ -315,14 +315,66 @@ const CourseDetails = () => {
         </p>
       </div>
 
+      {/* Timeline Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Grade Curricular por Semestre</CardTitle>
+          <CardDescription>
+            Visualize as disciplinas organizadas por semestre
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {subjects.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhuma disciplina vinculada ainda.
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {Array.from({ length: course.total_semesters }, (_, i) => i + 1).map((semester) => {
+                const semesterSubjects = subjects.filter(s => s.semester === semester);
+                
+                return (
+                  <div key={semester} className="border rounded-lg p-4">
+                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                      <GraduationCap className="h-5 w-5 text-primary" />
+                      {semester}º Semestre
+                      <Badge variant="secondary" className="ml-2">
+                        {semesterSubjects.length} {semesterSubjects.length === 1 ? 'disciplina' : 'disciplinas'}
+                      </Badge>
+                    </h3>
+                    {semesterSubjects.length === 0 ? (
+                      <p className="text-sm text-muted-foreground ml-7">
+                        Nenhuma disciplina neste semestre
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ml-7">
+                        {semesterSubjects.map((subject) => (
+                          <div
+                            key={subject.id}
+                            className="border rounded-md p-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+                          >
+                            <p className="font-medium">{subject.name}</p>
+                            <p className="text-sm text-muted-foreground">{subject.code}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Disciplinas Section */}
       <Card className="mb-6">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Disciplinas do Curso</CardTitle>
+              <CardTitle>Gerenciar Disciplinas</CardTitle>
               <CardDescription>
-                Gerencie as disciplinas vinculadas a este curso
+                Vincule ou crie disciplinas para este curso
               </CardDescription>
             </div>
             <div className="flex gap-2">
