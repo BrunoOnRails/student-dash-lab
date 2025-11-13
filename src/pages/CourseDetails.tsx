@@ -229,6 +229,17 @@ const CourseDetails = () => {
     }
   };
 
+  const handleAddSubjectToSemester = (semester: number) => {
+    setNewSubject({
+      name: "",
+      code: "",
+      year: 1,
+      semester: semester,
+      professor_id: ""
+    });
+    setIsCreateDialogOpen(true);
+  };
+
   const handleUnlinkSubject = async (subjectId: string) => {
     try {
       const { error } = await supabase
@@ -335,13 +346,23 @@ const CourseDetails = () => {
                 
                 return (
                   <div key={semester} className="border rounded-lg p-4">
-                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                      <GraduationCap className="h-5 w-5 text-primary" />
-                      {semester}º Semestre
-                      <Badge variant="secondary" className="ml-2">
-                        {semesterSubjects.length} {semesterSubjects.length === 1 ? 'disciplina' : 'disciplinas'}
-                      </Badge>
-                    </h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-lg flex items-center gap-2">
+                        <GraduationCap className="h-5 w-5 text-primary" />
+                        {semester}º Semestre
+                        <Badge variant="secondary" className="ml-2">
+                          {semesterSubjects.length} {semesterSubjects.length === 1 ? 'disciplina' : 'disciplinas'}
+                        </Badge>
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAddSubjectToSemester(semester)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Adicionar Disciplina
+                      </Button>
+                    </div>
                     {semesterSubjects.length === 0 ? (
                       <p className="text-sm text-muted-foreground ml-7">
                         Nenhuma disciplina neste semestre
