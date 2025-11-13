@@ -71,7 +71,7 @@ const Subjects = () => {
 
   const fetchSubjects = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('subjects')
         .select(`
           *,
@@ -79,8 +79,7 @@ const Subjects = () => {
             id,
             name,
             code
-          ),
-          students(count)
+          )
         `)
         .eq('professor_id', user?.id)
         .order('year', { ascending: false })
@@ -88,10 +87,23 @@ const Subjects = () => {
 
       if (error) throw error;
       
-      const subjectsWithCount = data?.map(subject => ({
-        ...subject,
-        student_count: subject.students?.[0]?.count || 0
-      })) || [];
+      // Agora precisamos contar alunos pelo curso de cada disciplina
+      const subjectsWithCount = await Promise.all(
+        (data || []).map(async (subject) => {
+          let studentCount = 0;
+          if (subject.course_id) {
+            const { count } = await supabase
+              .from('students')
+              .select('*', { count: 'exact', head: true })
+              .eq('course_id', subject.course_id);
+            studentCount = count || 0;
+          }
+          return {
+            ...subject,
+            student_count: studentCount
+          };
+        })
+      );
       
       setSubjects(subjectsWithCount);
     } catch (error) {
