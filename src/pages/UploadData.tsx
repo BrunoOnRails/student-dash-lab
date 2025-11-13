@@ -19,6 +19,7 @@ interface StudentData {
 
 interface GradeData {
   student_id: string;
+  subject: string; // Subject name or code
   assessment_type: string;
   assessment_name: string;
   grade: number;
@@ -151,6 +152,7 @@ export default function UploadData() {
     const gradeKeywords = [
       'grade', 'nota', 'score', 'pontuacao', 'pontuação',
       'student_id', 'matricula', 'matrícula', 'id_aluno',
+      'subject', 'disciplina', 'subject_name', 'nome_disciplina', 'subject_code', 'codigo_disciplina',
       'assessment_type', 'tipo', 'tipo_avaliacao', 'tipo_avaliação',
       'assessment_name', 'avaliacao', 'avaliação', 'nome_avaliacao',
       'max_grade', 'nota_maxima', 'nota_máxima', 'pontuacao_maxima'
@@ -167,6 +169,9 @@ export default function UploadData() {
     // Check for grade data indicators  
     const hasGrade = normalizedKeys.some(key => 
       ['grade', 'nota', 'score', 'pontuacao', 'pontuação'].includes(key)
+    );
+    const hasSubject = normalizedKeys.some(key => 
+      ['subject', 'disciplina', 'subject_name', 'nome_disciplina', 'subject_code', 'codigo_disciplina'].includes(key)
     );
     const hasAssessmentType = normalizedKeys.some(key => 
       ['assessment_type', 'tipo', 'tipo_avaliacao', 'tipo_avaliação'].includes(key)
@@ -186,17 +191,17 @@ export default function UploadData() {
       } else {
         details += ' ✓ Matrícula encontrada (nome opcional)';
       }
-    } else if (hasGrade && hasStudentId) {
+    } else if (hasGrade && hasStudentId && hasSubject) {
       detectedType = 'grades';
       details = `Detectado como NOTAS. Colunas encontradas: ${columns.join(', ')}`;
-      details += ' ✓ Nota e matrícula encontrados';
+      details += ' ✓ Nota, matrícula e disciplina encontrados';
       if (hasAssessmentType) {
         details += ' ✓ Tipo de avaliação encontrado';
       }
     } else {
       details = `Formato não reconhecido automaticamente. Colunas encontradas: ${columns.join(', ')}. `;
       details += 'Para ALUNOS: precisa de "nome" ou "matricula". ';
-      details += 'Para NOTAS: precisa de "nota" e "matricula".';
+      details += 'Para NOTAS: precisa de "nota", "matricula" e "disciplina".';
     }
     
     setDataType(detectedType);
@@ -371,13 +376,37 @@ export default function UploadData() {
       };
 
       const gradesToInsert: Partial<GradeData>[] = uploadedData.map(row => ({
-        student_id: row.student_id || row.Student_ID || row.Matricula,
+        student_id: row.student_id || row.Student_ID || row.Matricula || row.matricula,
+        subject: row.subject || row.Subject || row.Disciplina || row.disciplina || row.subject_name || row.Subject_Name || row.nome_disciplina || row.subject_code || row.Subject_Code || row.codigo_disciplina,
         assessment_type: row.assessment_type || row.Assessment_Type || row.Tipo || row.tipo || 'Prova',
         assessment_name: row.assessment_name || row.Assessment_Name || row.Avaliacao || row.avaliacao || '',
         grade: parseDecimal(row.grade || row.Grade || row.Nota || row.nota),
         max_grade: parseDecimal(row.max_grade || row.Max_Grade || row.Nota_Maxima || row.nota_maxima || 10),
         date_assigned: row.date_assigned || row.Date_Assigned || row.Data || row.data || new Date().toISOString().split('T')[0],
       }));
+
+      // Validate required fields
+      const missingSubject = gradesToInsert.some(g => !g.subject);
+      if (missingSubject) {
+        throw new Error('Todas as notas devem ter uma disciplina informada (nome ou código)');
+      }
+
+      // Get all subjects from the current user to match by name or code
+      const { data: subjects } = await supabase
+        .from('subjects')
+        .select('id, name, code')
+        .eq('professor_id', user?.id);
+
+      if (!subjects || subjects.length === 0) {
+        throw new Error('Você precisa criar disciplinas antes de importar notas');
+      }
+
+      // Create a map of subject names/codes to IDs
+      const subjectMap = new Map<string, string>();
+      subjects.forEach(subject => {
+        if (subject.name) subjectMap.set(subject.name.toLowerCase().trim(), subject.id);
+        if (subject.code) subjectMap.set(subject.code.toLowerCase().trim(), subject.id);
+      });
 
       // Get student IDs to validate they exist
       const studentIds = gradesToInsert.map(g => g.student_id).filter(Boolean);
@@ -393,39 +422,63 @@ export default function UploadData() {
       const studentMap = new Map(students.map(s => [s.student_id, s.id]));
       
       const validGrades = gradesToInsert
-        .filter(g => g.student_id && studentMap.has(g.student_id))
-        .map(g => ({
-          student_id: studentMap.get(g.student_id)!,
-          assessment_type: g.assessment_type || 'Prova',
-          assessment_name: g.assessment_name || 'Avaliação',
-          grade: g.grade || 0,
-          max_grade: g.max_grade || 10,
-          date_assigned: g.date_assigned || new Date().toISOString().split('T')[0],
-        }));
+        .filter(g => g.student_id && g.subject && studentMap.has(g.student_id))
+        .map(g => {
+          const subjectKey = g.subject!.toLowerCase().trim();
+          const subjectId = subjectMap.get(subjectKey);
+          
+          if (!subjectId) {
+            console.warn(`Disciplina não encontrada: ${g.subject}`);
+            return null;
+          }
+
+          return {
+            student_id: studentMap.get(g.student_id!)!,
+            subject_id: subjectId,
+            assessment_type: g.assessment_type || 'Prova',
+            assessment_name: g.assessment_name || 'Avaliação',
+            grade: g.grade || 0,
+            max_grade: g.max_grade || 10,
+            date_assigned: g.date_assigned || new Date().toISOString().split('T')[0],
+          };
+        })
+        .filter(Boolean) as Array<{
+          student_id: string;
+          subject_id: string;
+          assessment_type: string;
+          assessment_name: string;
+          grade: number;
+          max_grade: number;
+          date_assigned: string;
+        }>;
+
+      if (validGrades.length === 0) {
+        throw new Error('Nenhuma nota válida encontrada. Verifique se as disciplinas informadas existem no seu cadastro.');
+      }
 
       // Check which grades already exist
       const gradeKeys = validGrades.map(g => 
-        `${g.student_id}_${g.assessment_name}_${g.assessment_type}_${g.date_assigned}`
+        `${g.student_id}_${g.subject_id}_${g.assessment_name}_${g.assessment_type}_${g.date_assigned}`
       );
       
       const { data: existingGrades } = await supabase
         .from('grades')
-        .select('student_id, assessment_name, assessment_type, date_assigned, id, grade')
+        .select('student_id, subject_id, assessment_name, assessment_type, date_assigned, id, grade')
         .in('student_id', validGrades.map(g => g.student_id));
 
       const existingGradeMap = new Map(
         existingGrades?.map(g => [
-          `${g.student_id}_${g.assessment_name}_${g.assessment_type}_${g.date_assigned}`,
+          `${g.student_id}_${g.subject_id}_${g.assessment_name}_${g.assessment_type}_${g.date_assigned}`,
           g
         ]) || []
       );
 
       const newGrades = validGrades.filter(grade => 
-        !existingGradeMap.has(`${grade.student_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`)
+        !existingGradeMap.has(`${grade.student_id}_${grade.subject_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`)
       );
       
       const gradesToUpdate = validGrades.filter(grade => 
-        existingGradeMap.has(`${grade.student_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`)
+        existingGradeMap.has(`${grade.student_id}_${grade.subject_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`)
       );
 
       let insertedCount = 0;
@@ -444,7 +497,7 @@ export default function UploadData() {
       // Update existing grades
       if (gradesToUpdate.length > 0) {
         for (const grade of gradesToUpdate) {
-          const gradeKey = `${grade.student_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`;
+          const gradeKey = `${grade.student_id}_${grade.subject_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`;
           const existingGrade = existingGradeMap.get(gradeKey);
           
           if (existingGrade && existingGrade.grade !== grade.grade) {
@@ -746,6 +799,7 @@ export default function UploadData() {
               </p>
               <ul className="text-sm space-y-1 ml-4">
                 <li>• <strong>student_id/matricula/Matricula</strong>: Número de matrícula do aluno</li>
+                <li>• <strong>subject/disciplina/Disciplina</strong>: Nome ou código da disciplina (obrigatório)</li>
                 <li>• <strong>grade/nota/Nota</strong>: Nota obtida</li>
                 <li>• <strong>assessment_type/tipo/Tipo</strong>: Tipo de avaliação (opcional)</li>
                 <li>• <strong>assessment_name/avaliacao/Avaliacao</strong>: Nome da avaliação (opcional)</li>
@@ -753,7 +807,7 @@ export default function UploadData() {
                 <li>• <strong>date_assigned/data/Data</strong>: Data da avaliação (opcional)</li>
               </ul>
               <p className="text-xs text-muted-foreground mt-2">
-                <strong>Nota:</strong> As colunas "matrícula" e "nota" são obrigatórias para notas.
+                <strong>Nota:</strong> As colunas "matrícula", "disciplina" e "nota" são obrigatórias para notas.
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 <strong>CSV:</strong> Suporte automático para separadores: vírgula (,), ponto e vírgula (;) e tab.

@@ -48,6 +48,7 @@ export type Database = {
           id: string
           max_grade: number
           student_id: string
+          subject_id: string | null
         }
         Insert: {
           assessment_name: string
@@ -58,6 +59,7 @@ export type Database = {
           id?: string
           max_grade?: number
           student_id: string
+          subject_id?: string | null
         }
         Update: {
           assessment_name?: string
@@ -68,6 +70,7 @@ export type Database = {
           id?: string
           max_grade?: number
           student_id?: string
+          subject_id?: string | null
         }
         Relationships: [
           {
@@ -75,6 +78,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
         ]
