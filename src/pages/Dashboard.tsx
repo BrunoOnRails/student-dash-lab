@@ -510,7 +510,6 @@ const Dashboard = () => {
                       cx="50%"
                       cy="40%"
                       labelLine={false}
-                      label={({ gender, percent }) => `${gender}: ${(percent * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="count"
@@ -561,7 +560,6 @@ const Dashboard = () => {
                       cx="50%"
                       cy="40%"
                       labelLine={false}
-                      label={({ race, percent }) => `${race}: ${(percent * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="count"
