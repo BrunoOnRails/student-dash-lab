@@ -794,13 +794,16 @@ export default function UploadData() {
                 A planilha deve conter as seguintes colunas:
               </p>
               <ul className="text-sm space-y-1 ml-4">
-                <li>• <strong>name/nome/Nome</strong>: Nome completo do aluno</li>
-                <li>• <strong>student_id/matricula/Matricula</strong>: Número de matrícula</li>
+                <li>• <strong>name/nome/Nome</strong>: Nome completo do aluno (obrigatório)</li>
+                <li>• <strong>student_id/matricula/Matricula</strong>: Número de matrícula (obrigatório)</li>
+                <li>• <strong>course/curso/Curso</strong>: Nome ou código do curso (obrigatório)</li>
                 <li>• <strong>email/E-mail</strong>: E-mail do aluno (opcional)</li>
-                <li>• <strong>course/curso/Curso</strong>: Curso do aluno (opcional)</li>
+                <li>• <strong>sexo/Sexo</strong>: Sexo do aluno (opcional)</li>
+                <li>• <strong>renda/Renda/renda_media/Renda Média</strong>: Renda média do aluno (opcional)</li>
+                <li>• <strong>raca/Raça/etnia/Etnia</strong>: Raça/etnia do aluno (opcional)</li>
               </ul>
               <p className="text-xs text-muted-foreground mt-2">
-                <strong>Nota:</strong> Pelo menos uma das colunas principais (nome ou matrícula) é necessária.
+                <strong>Nota:</strong> Nome, matrícula e curso são obrigatórios.
               </p>
             </div>
             
