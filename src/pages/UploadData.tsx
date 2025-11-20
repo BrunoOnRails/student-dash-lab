@@ -799,7 +799,7 @@ export default function UploadData() {
                 <li>• <strong>course/curso/Curso</strong>: Nome ou código do curso (obrigatório)</li>
                 <li>• <strong>email/E-mail</strong>: E-mail do aluno (opcional)</li>
                 <li>• <strong>sexo/Sexo</strong>: Sexo do aluno (opcional)</li>
-                <li>• <strong>renda/Renda/renda_media/Renda Média</strong>: Renda média do aluno (opcional)</li>
+                <li>• <strong>renda/Renda/renda_media/Renda Média</strong>: Renda per capita do aluno (renda total da casa / quantidade de pessoas) (opcional)</li>
                 <li>• <strong>raca/Raça/etnia/Etnia</strong>: Raça/etnia do aluno (opcional)</li>
               </ul>
               <p className="text-xs text-muted-foreground mt-2">
