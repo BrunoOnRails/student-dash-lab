@@ -74,23 +74,16 @@ const Header = () => {
           </span>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
+              <Button 
+                variant="outline" 
+                size="sm" 
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="h-9 w-16 rounded-md border border-input overflow-hidden flex items-center justify-center relative hover:opacity-80 transition-opacity"
               >
-                <div className="absolute inset-0 flex">
-                  <div className="w-1/2 bg-white" />
-                  <div className="w-px bg-border" />
-                  <div className="w-1/2 bg-primary" />
-                </div>
-                <div className="relative z-10 flex items-center justify-center w-full">
-                  <Sun className="h-4 w-4 text-primary absolute left-2" />
-                  <Moon className="h-4 w-4 text-white absolute right-2" />
-                </div>
-              </button>
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Alternar modo {theme === 'dark' ? 'claro' : 'escuro'}</p>
+              <p>Alternar para modo {theme === 'dark' ? 'claro' : 'escuro'}</p>
             </TooltipContent>
           </Tooltip>
           <Button variant="outline" size="sm" onClick={handleSignOut}>
