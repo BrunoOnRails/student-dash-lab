@@ -5,6 +5,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from '@/hooks/useAuth';
 import { BarChart3, LogOut, Menu, BookOpen, Users, Upload, Home, FileText, PieChart, Moon, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -67,13 +72,27 @@ const Header = () => {
           <span className="text-sm text-muted-foreground">
             Bem-vindo, {user?.user_metadata?.full_name || user?.email}
           </span>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="h-9 w-16 rounded-md border border-input overflow-hidden flex items-center justify-center relative hover:opacity-80 transition-opacity"
+              >
+                <div className="absolute inset-0 flex">
+                  <div className="w-1/2 bg-white" />
+                  <div className="w-px bg-border" />
+                  <div className="w-1/2 bg-primary" />
+                </div>
+                <div className="relative z-10 flex items-center justify-center w-full">
+                  <Sun className="h-4 w-4 text-primary absolute left-2" />
+                  <Moon className="h-4 w-4 text-white absolute right-2" />
+                </div>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Alternar modo {theme === 'dark' ? 'claro' : 'escuro'}</p>
+            </TooltipContent>
+          </Tooltip>
           <Button variant="outline" size="sm" onClick={handleSignOut}>
             <LogOut className="h-4 w-4 mr-2" />
             Sair
