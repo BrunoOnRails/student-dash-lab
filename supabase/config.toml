@@ -1,1 +1,12 @@
 project_id = "qnewmogwltjbvvvsqwud"
+
+[auth.email]
+# Controls whether magic link and recovery emails are sent
+enable_signup = true
+double_confirm_changes = false
+enable_confirmations = false
+
+# CRITICAL: This sets recovery emails to use password reset flow instead of magic link
+# When true: sends magic link that auto-logs user in
+# When false: sends password reset link that requires setting new password
+enable_magic_link = false
