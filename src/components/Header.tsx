@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuth } from '@/hooks/useAuth';
-import { BarChart3, LogOut, Menu, BookOpen, Users, Upload, Home, FileText, PieChart, Moon, Sun } from 'lucide-react';
+import { BarChart3, LogOut, Menu, BookOpen, Users, Upload, Home, FileText, Moon, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 
@@ -32,7 +32,6 @@ const Header = () => {
     { label: 'Cursos', icon: BookOpen, path: '/courses' },
     { label: 'Carregar Planilha', icon: Upload, path: '/upload' },
     { label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
-    { label: 'Distribuição de Pontos', icon: PieChart, path: '/assessment-distribution' },
   ];
 
   return (
