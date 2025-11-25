@@ -520,74 +520,17 @@ const Dashboard = () => {
                   </Pie>
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: 'hsl(var(--popover))', 
-                      color: 'hsl(var(--popover-foreground))',
+                      backgroundColor: 'hsl(var(--popover))',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
-                      boxShadow: 'var(--shadow-elegant)'
+                      boxShadow: 'var(--shadow-elegant)',
+                      color: 'hsl(var(--popover-foreground))'
                     }}
-                    formatter={(value: number, name: string) => [
-                      `${value} ${value === 1 ? 'aluno' : 'alunos'}`, 
-                      'Quantidade'
-                    ]}
-                    labelFormatter={(label: string) => `Faixa de nota: ${label}`}
-                  />
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={36}
-                    formatter={(value: string, entry: any) => 
-                      `${value} (${entry.payload.count} ${entry.payload.count === 1 ? 'aluno' : 'alunos'})`
-                    }
-                    wrapperStyle={{
-                      color: 'hsl(var(--foreground))',
-                      fontSize: '14px'
+                    labelStyle={{
+                      color: 'hsl(var(--popover-foreground))'
                     }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Demographic Charts */}
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-6">Dados Demográficos</h2>
-          
-          {/* Gender Distribution */}
-          <Card className="chart-container mb-8">
-            <CardHeader className="pb-6">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <div className="p-1 rounded bg-chart-1/20">
-                  <div className="h-4 w-4 rounded-full" style={{backgroundColor: 'hsl(var(--chart-1))'}} />
-                </div>
-                Distribuição por Sexo
-              </CardTitle>
-              <CardDescription className="text-base">Quantidade de alunos por sexo</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <PieChart>
-                  <Pie
-                    data={dashboardData.genderDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ gender, percent }) => `${gender}: ${(percent * 100).toFixed(1)}%`}
-                    outerRadius={120}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {dashboardData.genderDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--popover))', 
-                      color: 'hsl(var(--popover-foreground))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      boxShadow: 'var(--shadow-elegant)'
+                    itemStyle={{
+                      color: 'hsl(var(--popover-foreground))'
                     }}
                     formatter={(value: number, name: string) => [
                       `${value} ${value === 1 ? 'aluno' : 'alunos'}`, 
@@ -640,11 +583,17 @@ const Dashboard = () => {
                   </Pie>
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: 'hsl(var(--popover))', 
-                      color: 'hsl(var(--popover-foreground))',
+                      backgroundColor: 'hsl(var(--popover))',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
-                      boxShadow: 'var(--shadow-elegant)'
+                      boxShadow: 'var(--shadow-elegant)',
+                      color: 'hsl(var(--popover-foreground))'
+                    }}
+                    labelStyle={{
+                      color: 'hsl(var(--popover-foreground))'
+                    }}
+                    itemStyle={{
+                      color: 'hsl(var(--popover-foreground))'
                     }}
                     formatter={(value: number, name: string) => [
                       `${value} ${value === 1 ? 'aluno' : 'alunos'}`, 
