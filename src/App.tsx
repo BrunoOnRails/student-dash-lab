@@ -18,6 +18,7 @@ import CourseDetails from "./pages/CourseDetails";
 import Dashboard from "./pages/Dashboard";
 import Grades from "./pages/Grades";
 import AssessmentDistribution from "./pages/AssessmentDistribution";
+import FlowchartGenerator from "./pages/FlowchartGenerator";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,11 @@ const App = () => {
               <Route path="/assessment-distribution" element={
                 <ProtectedRoute>
                   <AssessmentDistribution />
+                </ProtectedRoute>
+              } />
+              <Route path="/flowchart" element={
+                <ProtectedRoute>
+                  <FlowchartGenerator />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
