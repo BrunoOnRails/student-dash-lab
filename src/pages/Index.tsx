@@ -1,7 +1,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, Users, BarChart3 } from 'lucide-react';
+import { BookOpen, Users, BarChart3, Image } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 
@@ -78,6 +78,10 @@ const Index = () => {
                 </Button>
                 <Button className="w-full" variant="outline" onClick={() => navigate('/upload')}>
                   Carregar Planilha
+                </Button>
+                <Button className="w-full" variant="outline" onClick={() => navigate('/flowchart')}>
+                  <Image className="mr-2 h-4 w-4" />
+                  Fluxograma de Importação
                 </Button>
               </div>
             </CardContent>
