@@ -660,7 +660,7 @@ const Courses = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate(`/courses/${course.id}/students`)}
+                        onClick={() => navigate(`/courses/${course.id}`)}
                         className="flex items-center gap-1 p-0 h-auto"
                       >
                         <Users className="h-4 w-4" />
