@@ -40,6 +40,13 @@ interface Grade {
   grade: number;
   max_grade: number;
   date_assigned: string | null;
+  subject_id: string | null;
+}
+
+interface Subject {
+  id: string;
+  name: string;
+  code: string;
 }
 
 const Students = () => {
@@ -48,6 +55,7 @@ const Students = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -70,7 +78,8 @@ const Students = () => {
     assessment_name: '',
     grade: '',
     max_grade: '10',
-    date_assigned: new Date().toISOString().split('T')[0]
+    date_assigned: new Date().toISOString().split('T')[0],
+    subject_id: ''
   });
 
   useEffect(() => {
@@ -89,6 +98,16 @@ const Students = () => {
 
       if (coursesError) throw coursesError;
       setCourses(coursesData || []);
+
+      // Fetch subjects for the logged-in professor
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('id, name, code')
+        .eq('professor_id', user?.id)
+        .order('name');
+
+      if (subjectsError) throw subjectsError;
+      setSubjects(subjectsData || []);
 
       // Fetch students with course information
       const { data: studentsData, error: studentsError } = await supabase
@@ -242,7 +261,7 @@ const Students = () => {
   const handleAddGrade = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!viewingGrades || !gradeFormData.assessment_type || !gradeFormData.assessment_name || !gradeFormData.grade) {
+    if (!viewingGrades || !gradeFormData.assessment_type || !gradeFormData.assessment_name || !gradeFormData.grade || !gradeFormData.subject_id) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios",
@@ -261,7 +280,8 @@ const Students = () => {
             assessment_name: gradeFormData.assessment_name,
             grade: parseFloat(gradeFormData.grade),
             max_grade: parseFloat(gradeFormData.max_grade),
-            date_assigned: gradeFormData.date_assigned || null
+            date_assigned: gradeFormData.date_assigned || null,
+            subject_id: gradeFormData.subject_id
           })
           .eq('id', editingGrade.id);
 
@@ -281,7 +301,8 @@ const Students = () => {
             assessment_name: gradeFormData.assessment_name,
             grade: parseFloat(gradeFormData.grade),
             max_grade: parseFloat(gradeFormData.max_grade),
-            date_assigned: gradeFormData.date_assigned || null
+            date_assigned: gradeFormData.date_assigned || null,
+            subject_id: gradeFormData.subject_id
           }]);
 
         if (error) throw error;
@@ -297,7 +318,8 @@ const Students = () => {
         assessment_name: '',
         grade: '',
         max_grade: '10',
-        date_assigned: new Date().toISOString().split('T')[0]
+        date_assigned: new Date().toISOString().split('T')[0],
+        subject_id: ''
       });
       setEditingGrade(null);
       setIsAddGradeOpen(false);
@@ -346,7 +368,8 @@ const Students = () => {
       assessment_name: grade.assessment_name,
       grade: grade.grade.toString(),
       max_grade: grade.max_grade.toString(),
-      date_assigned: grade.date_assigned || new Date().toISOString().split('T')[0]
+      date_assigned: grade.date_assigned || new Date().toISOString().split('T')[0],
+      subject_id: grade.subject_id || ''
     });
     setIsAddGradeOpen(true);
   };
@@ -357,7 +380,8 @@ const Students = () => {
       assessment_name: '',
       grade: '',
       max_grade: '10',
-      date_assigned: new Date().toISOString().split('T')[0]
+      date_assigned: new Date().toISOString().split('T')[0],
+      subject_id: ''
     });
     setEditingGrade(null);
   };
@@ -615,6 +639,21 @@ const Students = () => {
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleAddGrade} className="space-y-4">
+                    <div>
+                      <Label htmlFor="subject_id">Disciplina *</Label>
+                      <Select value={gradeFormData.subject_id} onValueChange={(value) => setGradeFormData({ ...gradeFormData, subject_id: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a disciplina" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subjects.map((subject) => (
+                            <SelectItem key={subject.id} value={subject.id}>
+                              {subject.code} - {subject.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div>
                       <Label htmlFor="assessment_type">Tipo de Avaliação</Label>
                       <Select value={gradeFormData.assessment_type} onValueChange={(value) => setGradeFormData({ ...gradeFormData, assessment_type: value })}>
