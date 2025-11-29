@@ -173,7 +173,8 @@ const Courses = () => {
             name: formData.name.trim(),
             code: formData.code.trim(),
             total_semesters: formData.total_semesters,
-            start_date: formData.start_date
+            start_date: formData.start_date,
+            user_id: user?.id
           });
 
         if (error) throw error;
@@ -333,6 +334,7 @@ const Courses = () => {
       const coursesToInsert = uploadedData.map(row => ({
         name: String(row.Nome || row.Name || row.name || '').trim(),
         code: String(row.Codigo || row.Code || row.code || '').trim() || null,
+        user_id: user?.id
       })).filter(course => course.name);
 
       if (coursesToInsert.length === 0) {
