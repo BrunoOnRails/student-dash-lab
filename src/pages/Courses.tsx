@@ -331,11 +331,18 @@ const Courses = () => {
 
   const processCourses = async () => {
     try {
-      const coursesToInsert = uploadedData.map(row => ({
-        name: String(row.Nome || row.Name || row.name || '').trim(),
-        code: String(row.Codigo || row.Code || row.code || '').trim() || null,
-        user_id: user?.id
-      })).filter(course => course.name);
+      const coursesToInsert = uploadedData.map(row => {
+        const totalSemestersRaw = row.Total_Semestres || row.TotalSemestres || row.Semestres || row.total_semesters || row.Total_semesters || '';
+        const startDateRaw = row.Data_Inicio || row.DataInicio || row.Inicio || row.start_date || row.Start_date || '';
+        
+        return {
+          name: String(row.Nome || row.Name || row.name || '').trim(),
+          code: String(row.Codigo || row.Code || row.code || '').trim() || null,
+          total_semesters: totalSemestersRaw ? parseInt(String(totalSemestersRaw), 10) : 8,
+          start_date: startDateRaw ? String(startDateRaw).trim() : new Date().toISOString().split('T')[0],
+          user_id: user?.id
+        };
+      }).filter(course => course.name);
 
       if (coursesToInsert.length === 0) {
         throw new Error('Nenhum curso válido encontrado. Verifique se a coluna Nome está preenchida.');
