@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Users } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import Header from '@/components/Header';
 
 interface Subject {
@@ -19,93 +19,42 @@ interface Subject {
   semester: number;
   year: number;
   created_at: string;
-  student_count?: number;
   course_id?: string;
-  course?: {
-    id: string;
-    name: string;
-    code?: string;
-  };
 }
 
-interface Student {
-  id: string;
-  name: string;
-  student_id: string;
-  email?: string;
-  course?: string;
-}
-
-interface Course {
-  id: string;
-  name: string;
-  code?: string;
-}
 
 const Subjects = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-  const [viewingStudents, setViewingStudents] = useState<Subject | null>(null);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [loadingStudents, setLoadingStudents] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     semester: '',
-    year: new Date().getFullYear().toString(),
-    course_id: ''
+    year: new Date().getFullYear().toString()
   });
 
   useEffect(() => {
     if (user) {
       fetchSubjects();
-      fetchCourses();
     }
   }, [user]);
 
   const fetchSubjects = async () => {
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('subjects')
-        .select(`
-          *,
-          course:courses(
-            id,
-            name,
-            code
-          )
-        `)
+        .select('*')
         .eq('professor_id', user?.id)
         .order('year', { ascending: false })
         .order('semester', { ascending: false });
 
       if (error) throw error;
-      
-      // Agora precisamos contar alunos pelo curso de cada disciplina
-      const subjectsWithCount = await Promise.all(
-        (data || []).map(async (subject) => {
-          let studentCount = 0;
-          if (subject.course_id) {
-            const { count } = await supabase
-              .from('students')
-              .select('*', { count: 'exact', head: true })
-              .eq('course_id', subject.course_id);
-            studentCount = count || 0;
-          }
-          return {
-            ...subject,
-            student_count: studentCount
-          };
-        })
-      );
-      
-      setSubjects(subjectsWithCount);
+      setSubjects(data || []);
     } catch (error) {
       toast({
         title: "Erro",
@@ -114,20 +63,6 @@ const Subjects = () => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchCourses = async () => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('courses')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      setCourses(data || []);
-    } catch (error) {
-      console.error('Error fetching courses:', error);
     }
   };
 
@@ -149,7 +84,6 @@ const Subjects = () => {
         code: formData.code,
         semester: parseInt(formData.semester),
         year: parseInt(formData.year),
-        course_id: formData.course_id || null,
         professor_id: user?.id
       };
 
@@ -176,7 +110,7 @@ const Subjects = () => {
         });
       }
 
-      setFormData({ name: '', code: '', semester: '', year: new Date().getFullYear().toString(), course_id: '' });
+      setFormData({ name: '', code: '', semester: '', year: new Date().getFullYear().toString() });
       setEditingSubject(null);
       setIsDialogOpen(false);
       fetchSubjects();
@@ -195,8 +129,7 @@ const Subjects = () => {
       name: subject.name,
       code: subject.code,
       semester: subject.semester.toString(),
-      year: subject.year.toString(),
-      course_id: subject.course?.id || ''
+      year: subject.year.toString()
     });
     setIsDialogOpen(true);
   };
@@ -226,33 +159,8 @@ const Subjects = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', code: '', semester: '', year: new Date().getFullYear().toString(), course_id: '' });
+      setFormData({ name: '', code: '', semester: '', year: new Date().getFullYear().toString() });
     setEditingSubject(null);
-  };
-
-  const handleViewStudents = async (subject: Subject) => {
-    setViewingStudents(subject);
-    setLoadingStudents(true);
-    
-    try {
-      // Buscar alunos do curso da disciplina
-      const { data, error } = await (supabase as any)
-        .from('students')
-        .select('*')
-        .eq('course_id', subject.course_id)
-        .order('name');
-
-      if (error) throw error;
-      setStudents(data || []);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar alunos",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingStudents(false);
-    }
   };
 
   if (loading) {
@@ -315,22 +223,6 @@ const Subjects = () => {
                     placeholder="Ex: MAT001"
                     required
                   />
-                </div>
-                <div>
-                  <Label htmlFor="course">Curso (opcional)</Label>
-                  <select
-                    id="course"
-                    value={formData.course_id}
-                    onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
-                    className="w-full p-2 border border-input rounded-md bg-background"
-                  >
-                    <option value="">Selecione um curso</option>
-                    {courses.map(course => (
-                      <option key={course.id} value={course.id}>
-                        {course.name} {course.code ? `(${course.code})` : ''}
-                      </option>
-                    ))}
-                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -395,10 +287,8 @@ const Subjects = () => {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Código</TableHead>
-                    <TableHead>Curso</TableHead>
                     <TableHead>Semestre</TableHead>
                     <TableHead>Ano</TableHead>
-                    <TableHead>Alunos</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -407,29 +297,8 @@ const Subjects = () => {
                     <TableRow key={subject.id}>
                       <TableCell className="font-medium">{subject.name}</TableCell>
                       <TableCell>{subject.code}</TableCell>
-                      <TableCell>
-                        {subject.course ? (
-                          <span>
-                            {subject.course.name}
-                            {subject.course.code && ` (${subject.course.code})`}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
                       <TableCell>{subject.semester}º</TableCell>
                       <TableCell>{subject.year}</TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleViewStudents(subject)}
-                          className="gap-1"
-                        >
-                          <Users className="h-4 w-4" />
-                          {subject.student_count || 0}
-                        </Button>
-                      </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(subject)}>
@@ -449,47 +318,6 @@ const Subjects = () => {
         </Card>
       </div>
 
-      <Dialog open={!!viewingStudents} onOpenChange={() => setViewingStudents(null)}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Alunos - {viewingStudents?.name}</DialogTitle>
-            <DialogDescription>
-              {viewingStudents?.code} | {viewingStudents?.semester}º Semestre {viewingStudents?.year}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {loadingStudents ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : students.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">Nenhum aluno matriculado nesta disciplina</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Matrícula</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Curso</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {students.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell className="font-medium">{student.student_id}</TableCell>
-                    <TableCell>{student.name}</TableCell>
-                    <TableCell>{student.email || '-'}</TableCell>
-                    <TableCell>{student.course || '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
