@@ -432,6 +432,15 @@ const Courses = () => {
                       <p className="text-lg font-medium">Arraste e solte um arquivo aqui</p>
                       <p className="text-muted-foreground">ou clique para selecionar</p>
                       <p className="text-sm text-muted-foreground mt-2">Formatos aceitos: .xlsx, .xls, .csv</p>
+                      <div className="mt-4 text-left text-sm text-muted-foreground">
+                        <p className="font-medium mb-1">Colunas aceitas:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li><strong>Nome:</strong> Nome, Name, name</li>
+                          <li><strong>Código:</strong> Codigo, Code, code</li>
+                          <li><strong>Total de Semestres:</strong> Total_Semestres, TotalSemestres, Semestres, total_semesters</li>
+                          <li><strong>Data de Início:</strong> Data_Inicio, DataInicio, Inicio, start_date</li>
+                        </ul>
+                      </div>
                     </div>
                   )}
                 </div>
