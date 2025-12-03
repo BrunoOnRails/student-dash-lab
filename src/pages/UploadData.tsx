@@ -607,9 +607,38 @@ export default function UploadData() {
               ) : (
                 <div>
                   <p className="text-lg mb-2">Arraste um arquivo ou clique para selecionar</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-4">
                     Formatos aceitos: Excel (.xlsx, .xls) e CSV (.csv)
                   </p>
+                  <div className="text-left text-sm text-muted-foreground border-t pt-4 mt-4">
+                    <p className="font-medium mb-2">Colunas aceitas:</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="font-medium text-primary mb-1">Para Alunos:</p>
+                        <ul className="list-disc list-inside space-y-0.5 text-xs">
+                          <li><strong>Nome:</strong> Nome, Name, nome</li>
+                          <li><strong>Matrícula:</strong> Matricula, Student_ID, matricula</li>
+                          <li><strong>Email:</strong> Email, email</li>
+                          <li><strong>Curso:</strong> Curso, Course, curso</li>
+                          <li><strong>Sexo:</strong> Sexo, sexo</li>
+                          <li><strong>Renda:</strong> Renda_Media, Renda, renda_media</li>
+                          <li><strong>Raça:</strong> Raca, raca</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-medium text-primary mb-1">Para Notas:</p>
+                        <ul className="list-disc list-inside space-y-0.5 text-xs">
+                          <li><strong>Matrícula:</strong> Matricula, Student_ID, matricula</li>
+                          <li><strong>Disciplina:</strong> Disciplina, Subject, disciplina</li>
+                          <li><strong>Tipo:</strong> Tipo, Assessment_Type, tipo</li>
+                          <li><strong>Avaliação:</strong> Avaliacao, Assessment_Name</li>
+                          <li><strong>Nota:</strong> Nota, Grade, nota</li>
+                          <li><strong>Nota Máxima:</strong> Nota_Maxima, Max_Grade</li>
+                          <li><strong>Data:</strong> Data, Date_Assigned, data</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

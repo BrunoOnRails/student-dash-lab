@@ -293,11 +293,20 @@ const Subjects = () => {
                     {isDragActive ? (
                       <p>Solte o arquivo aqui...</p>
                     ) : (
-                      <div>
-                        <p className="text-lg font-medium">Arraste e solte um arquivo aqui</p>
-                        <p className="text-muted-foreground">ou clique para selecionar</p>
-                        <p className="text-sm text-muted-foreground mt-2">Formatos aceitos: .xlsx, .xls, .csv</p>
+                    <div>
+                      <p className="text-lg font-medium">Arraste e solte um arquivo aqui</p>
+                      <p className="text-muted-foreground">ou clique para selecionar</p>
+                      <p className="text-sm text-muted-foreground mt-2">Formatos aceitos: .xlsx, .xls, .csv</p>
+                      <div className="mt-4 text-left text-sm text-muted-foreground">
+                        <p className="font-medium mb-1">Colunas aceitas:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li><strong>Nome:</strong> Nome, Name, name</li>
+                          <li><strong>Código:</strong> Codigo, Code, code</li>
+                          <li><strong>Semestre:</strong> Semestre, Semester, semester</li>
+                          <li><strong>Ano:</strong> Ano, Year, year</li>
+                        </ul>
                       </div>
+                    </div>
                     )}
                   </div>
                 ) : (
