@@ -30,12 +30,19 @@ interface GradeData {
   date_assigned: string;
 }
 
+interface CourseData {
+  name: string;
+  code: string;
+  total_semesters: number;
+  start_date: string;
+}
+
 export default function UploadData() {
   const [uploadedData, setUploadedData] = useState<any[]>([]);
-  const [dataType, setDataType] = useState<'students' | 'grades' | null>(null);
+  const [dataType, setDataType] = useState<'students' | 'grades' | 'courses' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'students' | 'grades' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'students' | 'grades' | 'courses' | null>(null);
   const [detectedColumns, setDetectedColumns] = useState<string[]>([]);
   const [detectionDetails, setDetectionDetails] = useState<string>('');
   const [showForceTypeDialog, setShowForceTypeDialog] = useState(false);
@@ -140,33 +147,26 @@ export default function UploadData() {
     
     const firstRow = data[0];
     const columns = Object.keys(firstRow);
-    const normalizedKeys = columns.map(k => k.toLowerCase().trim());
+    const normalizedKeys = columns.map(k => k.toLowerCase().trim().replace(/[_-]/g, ''));
     
     setDetectedColumns(columns);
     
-    // Enhanced detection with Portuguese support
-    const studentKeywords = [
-      'name', 'nome', 'student_name', 'nome_aluno',
-      'student_id', 'matricula', 'matrícula', 'id_aluno', 'codigo_aluno',
-      'email', 'e-mail', 'student_email',
-      'course', 'curso'
-    ];
-    
-    const gradeKeywords = [
-      'grade', 'nota', 'score', 'pontuacao', 'pontuação',
-      'student_id', 'matricula', 'matrícula', 'id_aluno',
-      'subject', 'disciplina', 'subject_name', 'nome_disciplina', 'subject_code', 'codigo_disciplina',
-      'assessment_type', 'tipo', 'tipo_avaliacao', 'tipo_avaliação',
-      'assessment_name', 'avaliacao', 'avaliação', 'nome_avaliacao',
-      'max_grade', 'nota_maxima', 'nota_máxima', 'pontuacao_maxima'
-    ];
-    
-    // Check for student data indicators
-    const hasStudentName = normalizedKeys.some(key => 
-      ['name', 'nome', 'student_name', 'nome_aluno'].includes(key)
+    // Check for course data indicators FIRST (most specific)
+    const hasCourseCode = normalizedKeys.some(key => 
+      ['codigo', 'code', 'codigocurso', 'coursecode'].includes(key)
     );
+    const hasTotalSemesters = normalizedKeys.some(key => 
+      ['totalsemestre', 'totalsemestres', 'semestres', 'semesters', 'totalsemesters'].includes(key)
+    );
+    const hasStartDate = normalizedKeys.some(key => 
+      ['datainicio', 'startdate', 'inicio', 'dataini'].includes(key)
+    );
+    const hasCourseName = normalizedKeys.some(key => 
+      ['nome', 'name', 'nomecurso', 'coursename'].includes(key)
+    );
+    // Check if it looks like a course (has code AND doesn't have student-specific fields)
     const hasStudentId = normalizedKeys.some(key => 
-      ['student_id', 'matricula', 'matrícula', 'id_aluno', 'codigo_aluno'].includes(key)
+      ['studentid', 'matricula', 'matrícula', 'idaluno', 'codigoaluno'].includes(key)
     );
     
     // Check for grade data indicators  
@@ -174,26 +174,23 @@ export default function UploadData() {
       ['grade', 'nota', 'score', 'pontuacao', 'pontuação'].includes(key)
     );
     const hasSubject = normalizedKeys.some(key => 
-      ['subject', 'disciplina', 'subject_name', 'nome_disciplina', 'subject_code', 'codigo_disciplina'].includes(key)
+      ['subject', 'disciplina', 'subjectname', 'nomedisciplina', 'subjectcode', 'codigodisciplina'].includes(key)
     );
     const hasAssessmentType = normalizedKeys.some(key => 
-      ['assessment_type', 'tipo', 'tipo_avaliacao', 'tipo_avaliação'].includes(key)
+      ['assessmenttype', 'tipo', 'tipoavaliacao', 'tipoavaliação'].includes(key)
     );
     
-    let detectedType: 'students' | 'grades' | null = null;
+    let detectedType: 'students' | 'grades' | 'courses' | null = null;
     let details = '';
     
-    // More flexible detection logic
-    if ((hasStudentName || hasStudentId) && !hasGrade) {
-      detectedType = 'students';
-      details = `Detectado como ALUNOS. Colunas encontradas: ${columns.join(', ')}`;
-      if (hasStudentName && hasStudentId) {
-        details += ' ✓ Nome e matrícula encontrados';
-      } else if (hasStudentName) {
-        details += ' ✓ Nome encontrado (matrícula opcional)';
-      } else {
-        details += ' ✓ Matrícula encontrada (nome opcional)';
-      }
+    // Detection logic - check courses first since they're more specific
+    if ((hasCourseCode || hasTotalSemesters) && !hasStudentId && !hasGrade) {
+      detectedType = 'courses';
+      details = `Detectado como CURSOS. Colunas encontradas: ${columns.join(', ')}`;
+      if (hasCourseName) details += ' ✓ Nome do curso encontrado';
+      if (hasCourseCode) details += ' ✓ Código encontrado';
+      if (hasTotalSemesters) details += ' ✓ Total de semestres encontrado';
+      if (hasStartDate) details += ' ✓ Data de início encontrada';
     } else if (hasGrade && hasStudentId && hasSubject) {
       detectedType = 'grades';
       details = `Detectado como NOTAS. Colunas encontradas: ${columns.join(', ')}`;
@@ -201,9 +198,20 @@ export default function UploadData() {
       if (hasAssessmentType) {
         details += ' ✓ Tipo de avaliação encontrado';
       }
+    } else if ((hasCourseName || hasStudentId) && !hasGrade && !hasTotalSemesters) {
+      detectedType = 'students';
+      details = `Detectado como ALUNOS. Colunas encontradas: ${columns.join(', ')}`;
+      if (hasCourseName && hasStudentId) {
+        details += ' ✓ Nome e matrícula encontrados';
+      } else if (hasCourseName) {
+        details += ' ✓ Nome encontrado (matrícula opcional)';
+      } else {
+        details += ' ✓ Matrícula encontrada (nome opcional)';
+      }
     } else {
       details = `Formato não reconhecido automaticamente. Colunas encontradas: ${columns.join(', ')}. `;
-      details += 'Para ALUNOS: precisa de "nome" ou "matricula". ';
+      details += 'Para CURSOS: precisa de "codigo" ou "total_semestres". ';
+      details += 'Para ALUNOS: precisa de "nome" e "matricula". ';
       details += 'Para NOTAS: precisa de "nota", "matricula" e "disciplina".';
     }
     
@@ -219,12 +227,13 @@ export default function UploadData() {
     }
   };
 
-  const forceDataType = (type: 'students' | 'grades') => {
+  const forceDataType = (type: 'students' | 'grades' | 'courses') => {
     setDataType(type);
     setShowForceTypeDialog(false);
-    setDetectionDetails(`Tipo forçado para ${type === 'students' ? 'ALUNOS' : 'NOTAS'}. Colunas: ${detectedColumns.join(', ')}`);
+    const typeLabels = { students: 'ALUNOS', grades: 'NOTAS', courses: 'CURSOS' };
+    setDetectionDetails(`Tipo forçado para ${typeLabels[type]}. Colunas: ${detectedColumns.join(', ')}`);
     toast({
-      title: `Tipo definido como ${type === 'students' ? 'Alunos' : 'Notas'}`,
+      title: `Tipo definido como ${typeLabels[type]}`,
       description: "Verifique se os dados estão corretos antes de salvar",
     });
   };
@@ -558,6 +567,98 @@ export default function UploadData() {
     }
   };
 
+  const processCourses = async () => {
+    setIsProcessing(true);
+    try {
+      const coursesToInsert: CourseData[] = uploadedData.map(row => ({
+        name: String(row.nome || row.Nome || row.name || row.Name || '').trim(),
+        code: String(row.codigo || row.Codigo || row.code || row.Code || '').trim(),
+        total_semesters: parseInt(String(row.total_semestre || row.Total_Semestre || row.total_semesters || row.Total_Semesters || row.Semestres || row.semestres || '8').replace(/\D/g, '')) || 8,
+        start_date: String(row.Data_Inicio || row.data_inicio || row.DataInicio || row.start_date || row.Start_Date || row.Inicio || row.inicio || new Date().toISOString().split('T')[0]).trim()
+      }));
+
+      // Filter out empty records
+      const validCourses = coursesToInsert.filter(course => 
+        course.name && course.code
+      );
+
+      if (validCourses.length === 0) {
+        throw new Error('Nenhum curso válido encontrado. Verifique se as colunas Nome e Codigo estão preenchidas.');
+      }
+
+      // Check which courses already exist by code
+      const courseCodes = validCourses.map(c => c.code);
+      const { data: existingCourses } = await supabase
+        .from('courses')
+        .select('code, id, name')
+        .in('code', courseCodes);
+
+      const existingCourseMap = new Map(existingCourses?.map(c => [c.code.toLowerCase(), c]) || []);
+      
+      const newCourses = validCourses.filter(course => !existingCourseMap.has(course.code.toLowerCase()));
+      const coursesToUpdate = validCourses.filter(course => existingCourseMap.has(course.code.toLowerCase()));
+
+      let insertedCount = 0;
+      let updatedCount = 0;
+
+      // Insert new courses
+      if (newCourses.length > 0) {
+        const coursesWithUserId = newCourses.map(course => ({
+          name: course.name,
+          code: course.code,
+          total_semesters: course.total_semesters,
+          start_date: course.start_date,
+          user_id: user?.id
+        }));
+
+        const { error: insertError } = await supabase
+          .from('courses')
+          .insert(coursesWithUserId);
+
+        if (insertError) throw insertError;
+        insertedCount = coursesWithUserId.length;
+      }
+
+      // Update existing courses
+      if (coursesToUpdate.length > 0) {
+        for (const course of coursesToUpdate) {
+          const existingCourse = existingCourseMap.get(course.code.toLowerCase());
+          
+          if (existingCourse) {
+            const { error: updateError } = await supabase
+              .from('courses')
+              .update({
+                name: course.name,
+                total_semesters: course.total_semesters,
+                start_date: course.start_date
+              })
+              .eq('id', existingCourse.id);
+
+            if (updateError) throw updateError;
+            updatedCount++;
+          }
+        }
+      }
+
+      toast({
+        title: "Cursos processados com sucesso",
+        description: `${insertedCount} novos, ${updatedCount} atualizados`,
+      });
+      
+      setUploadedData([]);
+      setDataType(null);
+    } catch (error) {
+      console.error('Error importing courses:', error);
+      toast({
+        title: "Erro ao importar cursos",
+        description: error instanceof Error ? error.message : "Verifique os dados e tente novamente",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
@@ -576,7 +677,7 @@ export default function UploadData() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Importar Dados</h1>
           <p className="text-muted-foreground">
-            Faça upload de planilhas com informações de alunos ou notas
+            Faça upload de planilhas com informações de cursos, alunos ou notas
           </p>
         </div>
 
@@ -612,29 +713,38 @@ export default function UploadData() {
                   </p>
                   <div className="text-left text-sm text-muted-foreground border-t pt-4 mt-4">
                     <p className="font-medium mb-2">Colunas aceitas:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="font-medium text-primary mb-1">Para Cursos:</p>
+                        <ul className="list-disc list-inside space-y-0.5 text-xs">
+                          <li><strong>Nome:</strong> Nome, name, nome</li>
+                          <li><strong>Código:</strong> Codigo, code, codigo</li>
+                          <li><strong>Semestres:</strong> Total_Semestre, Semestres</li>
+                          <li><strong>Data Início:</strong> Data_Inicio, start_date</li>
+                        </ul>
+                      </div>
                       <div>
                         <p className="font-medium text-primary mb-1">Para Alunos:</p>
                         <ul className="list-disc list-inside space-y-0.5 text-xs">
                           <li><strong>Nome:</strong> Nome, Name, nome</li>
-                          <li><strong>Matrícula:</strong> Matricula, Student_ID, matricula</li>
+                          <li><strong>Matrícula:</strong> Matricula, Student_ID</li>
                           <li><strong>Email:</strong> Email, email</li>
                           <li><strong>Curso:</strong> Curso, Course, curso</li>
                           <li><strong>Sexo:</strong> Sexo, sexo</li>
-                          <li><strong>Renda:</strong> Renda_Media, Renda, renda_media</li>
+                          <li><strong>Renda:</strong> Renda_Media, Renda</li>
                           <li><strong>Raça:</strong> Raca, raca</li>
                         </ul>
                       </div>
                       <div>
                         <p className="font-medium text-primary mb-1">Para Notas:</p>
                         <ul className="list-disc list-inside space-y-0.5 text-xs">
-                          <li><strong>Matrícula:</strong> Matricula, Student_ID, matricula</li>
-                          <li><strong>Disciplina:</strong> Disciplina, Subject, disciplina</li>
-                          <li><strong>Tipo:</strong> Tipo, Assessment_Type, tipo</li>
+                          <li><strong>Matrícula:</strong> Matricula, Student_ID</li>
+                          <li><strong>Disciplina:</strong> Disciplina, Subject</li>
+                          <li><strong>Tipo:</strong> Tipo, Assessment_Type</li>
                           <li><strong>Avaliação:</strong> Avaliacao, Assessment_Name</li>
                           <li><strong>Nota:</strong> Nota, Grade, nota</li>
                           <li><strong>Nota Máxima:</strong> Nota_Maxima, Max_Grade</li>
-                          <li><strong>Data:</strong> Data, Date_Assigned, data</li>
+                          <li><strong>Data:</strong> Data, Date_Assigned</li>
                         </ul>
                       </div>
                     </div>
@@ -650,7 +760,9 @@ export default function UploadData() {
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-              {dataType === 'students' ? (
+              {dataType === 'courses' ? (
+                  <><CheckCircle className="h-5 w-5 text-green-600" /> Dados de Cursos Detectados</>
+                ) : dataType === 'students' ? (
                   <><CheckCircle className="h-5 w-5 text-green-600" /> Dados de Alunos Detectados</>
                 ) : dataType === 'grades' ? (
                   <><CheckCircle className="h-5 w-5 text-green-600" /> Dados de Notas Detectados</>
@@ -700,6 +812,17 @@ export default function UploadData() {
               </div>
 
               <div className="mt-6 flex gap-4 flex-wrap">
+                {dataType === 'courses' && (
+                  <Button 
+                    onClick={() => {
+                      setPendingAction('courses');
+                      setShowConfirmDialog(true);
+                    }} 
+                    disabled={isProcessing}
+                  >
+                    Salvar Cursos
+                  </Button>
+                )}
                 {dataType === 'students' && (
                   <Button 
                     onClick={() => {
@@ -763,7 +886,10 @@ export default function UploadData() {
               <p className="text-sm text-muted-foreground">
                 Colunas detectadas: {detectedColumns.join(', ')}
               </p>
-              <div className="flex gap-4">
+              <div className="flex gap-4 flex-wrap">
+                <Button onClick={() => forceDataType('courses')}>
+                  Dados de Cursos
+                </Button>
                 <Button onClick={() => forceDataType('students')}>
                   Dados de Alunos
                 </Button>
@@ -789,7 +915,7 @@ export default function UploadData() {
             <DialogHeader>
               <DialogTitle>Confirmar Importação</DialogTitle>
               <DialogDescription>
-                Deseja salvar os {uploadedData.length} {pendingAction === 'students' ? 'alunos' : 'notas'} no banco de dados?
+                Deseja salvar os {uploadedData.length} {pendingAction === 'courses' ? 'cursos' : pendingAction === 'students' ? 'alunos' : 'notas'} no banco de dados?
                 Esta ação não pode ser desfeita.
               </DialogDescription>
             </DialogHeader>
@@ -806,7 +932,9 @@ export default function UploadData() {
               <Button 
                 onClick={async () => {
                   setShowConfirmDialog(false);
-                  if (pendingAction === 'students') {
+                  if (pendingAction === 'courses') {
+                    await processCourses();
+                  } else if (pendingAction === 'students') {
                     await processStudents();
                   } else if (pendingAction === 'grades') {
                     await processGrades();
@@ -828,6 +956,19 @@ export default function UploadData() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
+              <h4 className="font-semibold mb-2">Para importar cursos:</h4>
+              <p className="text-sm text-muted-foreground mb-2">
+                A planilha deve conter as seguintes colunas:
+              </p>
+              <ul className="text-sm space-y-1 ml-4">
+                <li>• <strong>nome/Nome</strong>: Nome do curso (obrigatório)</li>
+                <li>• <strong>codigo/Codigo</strong>: Código do curso (obrigatório)</li>
+                <li>• <strong>total_semestre/Semestres</strong>: Quantidade de semestres (opcional, padrão: 8)</li>
+                <li>• <strong>Data_Inicio/start_date</strong>: Data de início do curso (opcional, padrão: data atual)</li>
+              </ul>
+            </div>
+
+            <div>
               <h4 className="font-semibold mb-2">Para importar alunos:</h4>
               <p className="text-sm text-muted-foreground mb-2">
                 A planilha deve conter as seguintes colunas:
@@ -838,12 +979,9 @@ export default function UploadData() {
                 <li>• <strong>course/curso/Curso</strong>: Nome ou código do curso (obrigatório)</li>
                 <li>• <strong>email/E-mail</strong>: E-mail do aluno (opcional)</li>
                 <li>• <strong>sexo/Sexo</strong>: Sexo do aluno (opcional)</li>
-                <li>• <strong>renda/Renda/renda_media/Renda Média</strong>: Renda per capita do aluno (renda total da casa / quantidade de pessoas) (opcional)</li>
+                <li>• <strong>renda/Renda/renda_media/Renda Média</strong>: Renda per capita do aluno (opcional)</li>
                 <li>• <strong>raca/Raça/etnia/Etnia</strong>: Raça/etnia do aluno (opcional)</li>
               </ul>
-              <p className="text-xs text-muted-foreground mt-2">
-                <strong>Nota:</strong> Nome, matrícula e curso são obrigatórios.
-              </p>
             </div>
             
             <div>
@@ -861,9 +999,6 @@ export default function UploadData() {
                 <li>• <strong>date_assigned/data/Data</strong>: Data da avaliação (opcional)</li>
               </ul>
               <p className="text-xs text-muted-foreground mt-2">
-                <strong>Nota:</strong> As colunas "matrícula", "disciplina" e "nota" são obrigatórias para notas.
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
                 <strong>CSV:</strong> Suporte automático para separadores: vírgula (,), ponto e vírgula (;) e tab.
               </p>
             </div>
