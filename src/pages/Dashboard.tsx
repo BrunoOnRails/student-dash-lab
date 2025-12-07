@@ -87,7 +87,7 @@ const Dashboard = () => {
       // Fetch students count with demographic data
       const { data: allStudents, error: studentsError } = await supabase
         .from('students')
-        .select('id, sexo, renda_media, raca');
+        .select('id, gender, average_income, ethnicity');
 
       if (studentsError) throw studentsError;
       const studentsCount = allStudents?.length || 0;
@@ -147,7 +147,7 @@ const Dashboard = () => {
 
       // Gender distribution
       const genderGroups = (allStudents || []).reduce((acc, student) => {
-        const gender = student.sexo || 'Não informado';
+        const gender = student.gender || 'Não informado';
         acc[gender] = (acc[gender] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
@@ -159,7 +159,7 @@ const Dashboard = () => {
 
       // Race distribution
       const raceGroups = (allStudents || []).reduce((acc, student) => {
-        const race = student.raca || 'Não informado';
+        const race = student.ethnicity || 'Não informado';
         acc[race] = (acc[race] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
@@ -178,11 +178,11 @@ const Dashboard = () => {
         { range: 'Acima de 5000', min: 5000, max: Infinity }
       ];
 
-      const studentsWithIncome = (allStudents || []).filter(s => s.renda_media != null);
+      const studentsWithIncome = (allStudents || []).filter(s => s.average_income != null);
       const incomeDistribution = incomeRanges.map(range => ({
         range: range.range,
         count: studentsWithIncome.filter(student => 
-          Number(student.renda_media) >= range.min && Number(student.renda_media) < range.max
+          Number(student.average_income) >= range.min && Number(student.average_income) < range.max
         ).length
       }));
 

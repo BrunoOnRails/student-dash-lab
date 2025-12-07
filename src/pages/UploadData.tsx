@@ -15,9 +15,9 @@ interface StudentData {
   email: string;
   student_id: string;
   course: string; // Course name or code to link student to course
-  sexo?: string;
-  renda_media?: number;
-  raca?: string;
+  gender?: string;
+  average_income?: number;
+  ethnicity?: string;
 }
 
 interface GradeData {
@@ -247,17 +247,17 @@ export default function UploadData() {
     setIsProcessing(true);
     try {
       const studentsToInsert: StudentData[] = uploadedData.map(row => {
-        const sexoRaw = String(row.Sexo || row.sexo || row.Sex || row.sex || '').trim();
-        const racaRaw = String(row.Raça || row.Raca || row.raca || row.Race || row.Etnia || row.etnia || '').trim();
+        const genderRaw = String(row.Sexo || row.sexo || row.Sex || row.sex || row.Gender || row.gender || '').trim();
+        const ethnicityRaw = String(row.Raça || row.Raca || row.raca || row.Race || row.Etnia || row.etnia || row.Ethnicity || row.ethnicity || '').trim();
         
         return {
           name: String(row.Nome || row.Name || row.name || '').trim(),
           email: String(row['E-mail'] || row.Email || row.email || '').trim(),
           student_id: String(row.Matricula || row.Student_ID || row.student_id || row.matrícula || '').trim(),
           course: String(row.Curso || row.Course || row.course || '').trim(),
-          sexo: sexoRaw ? capitalizeFirst(sexoRaw) : undefined,
-          renda_media: parseFloat(String(row.Renda || row['Renda Média'] || row.renda_media || row['Renda Media'] || row.Income || '0').replace(',', '.')) || undefined,
-          raca: racaRaw ? capitalizeFirst(racaRaw) : undefined
+          gender: genderRaw ? capitalizeFirst(genderRaw) : undefined,
+          average_income: parseFloat(String(row.Renda || row['Renda Média'] || row.renda_media || row['Renda Media'] || row.Income || row.average_income || '0').replace(',', '.')) || undefined,
+          ethnicity: ethnicityRaw ? capitalizeFirst(ethnicityRaw) : undefined
         };
       });
 
@@ -324,9 +324,9 @@ export default function UploadData() {
             email: student.email || null,
             student_id: student.student_id,
             course_id: courseId,
-            sexo: student.sexo || null,
-            renda_media: student.renda_media || null,
-            raca: student.raca || null
+            gender: student.gender || null,
+            average_income: student.average_income || null,
+            ethnicity: student.ethnicity || null
           };
         }).filter(Boolean);
 
@@ -359,9 +359,9 @@ export default function UploadData() {
                 name: student.name,
                 email: student.email || null,
                 course_id: courseId,
-                sexo: student.sexo || null,
-                renda_media: student.renda_media || null,
-                raca: student.raca || null
+                gender: student.gender || null,
+                average_income: student.average_income || null,
+                ethnicity: student.ethnicity || null
               })
               .eq('id', existingStudent.id);
 

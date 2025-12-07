@@ -64,9 +64,9 @@ const Students = () => {
     email: '',
     student_id: '',
     course_id: '',
-    sexo: '',
-    renda_media: '',
-    raca: ''
+    gender: '',
+    average_income: '',
+    ethnicity: ''
   });
   const [viewingGrades, setViewingGrades] = useState<Student | null>(null);
   const [grades, setGrades] = useState<Grade[]>([]);
@@ -150,9 +150,9 @@ const Students = () => {
         email: formData.email || null,
         student_id: formData.student_id,
         course_id: formData.course_id,
-        sexo: formData.sexo || null,
-        renda_media: formData.renda_media ? parseFloat(formData.renda_media) : null,
-        raca: formData.raca || null
+        gender: formData.gender || null,
+        average_income: formData.average_income ? parseFloat(formData.average_income) : null,
+        ethnicity: formData.ethnicity || null
       };
 
       if (editingStudent) {
@@ -178,7 +178,7 @@ const Students = () => {
         });
       }
 
-      setFormData({ name: '', email: '', student_id: '', course_id: '', sexo: '', renda_media: '', raca: '' });
+      setFormData({ name: '', email: '', student_id: '', course_id: '', gender: '', average_income: '', ethnicity: '' });
       setEditingStudent(null);
       setIsDialogOpen(false);
       fetchData();
@@ -198,9 +198,9 @@ const Students = () => {
       email: student.email || '',
       student_id: student.student_id,
       course_id: student.course_id,
-      sexo: (student as any).sexo || '',
-      renda_media: (student as any).renda_media?.toString() || '',
-      raca: (student as any).raca || ''
+      gender: (student as any).gender || '',
+      average_income: (student as any).average_income?.toString() || '',
+      ethnicity: (student as any).ethnicity || ''
     });
     setIsDialogOpen(true);
   };
@@ -230,7 +230,7 @@ const Students = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', student_id: '', course_id: '', sexo: '', renda_media: '', raca: '' });
+    setFormData({ name: '', email: '', student_id: '', course_id: '', gender: '', average_income: '', ethnicity: '' });
     setEditingStudent(null);
   };
 
@@ -478,8 +478,8 @@ const Students = () => {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="sexo">Sexo (opcional)</Label>
-                    <Select value={formData.sexo} onValueChange={(value) => setFormData({ ...formData, sexo: value })}>
+                    <Label htmlFor="gender">Sexo (opcional)</Label>
+                    <Select value={formData.gender} onValueChange={(value) => setFormData({ ...formData, gender: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o sexo" />
                       </SelectTrigger>
@@ -492,19 +492,19 @@ const Students = () => {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="renda_media">Renda Média Familiar (opcional)</Label>
+                    <Label htmlFor="average_income">Renda Média Familiar (opcional)</Label>
                     <Input
-                      id="renda_media"
+                      id="average_income"
                       type="number"
                       step="0.01"
-                      value={formData.renda_media}
-                      onChange={(e) => setFormData({ ...formData, renda_media: e.target.value })}
+                      value={formData.average_income}
+                      onChange={(e) => setFormData({ ...formData, average_income: e.target.value })}
                       placeholder="Ex: 3500.00"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="raca">Raça/Etnia (opcional)</Label>
-                    <Select value={formData.raca} onValueChange={(value) => setFormData({ ...formData, raca: value })}>
+                    <Label htmlFor="ethnicity">Raça/Etnia (opcional)</Label>
+                    <Select value={formData.ethnicity} onValueChange={(value) => setFormData({ ...formData, ethnicity: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a raça/etnia" />
                       </SelectTrigger>
