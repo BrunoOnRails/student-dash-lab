@@ -502,54 +502,57 @@ const Dashboard = () => {
               <CardDescription className="text-base">Proporção visual de notas por faixa</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <PieChart>
-                  <Pie
-                    data={dashboardData.gradeDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ range, percent }) => `${range}: ${(percent * 100).toFixed(2)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {dashboardData.gradeDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      boxShadow: 'var(--shadow-elegant)',
-                      color: 'hsl(var(--popover-foreground))'
-                    }}
-                    labelStyle={{
-                      color: 'hsl(var(--popover-foreground))'
-                    }}
-                    itemStyle={{
-                      color: 'hsl(var(--popover-foreground))'
-                    }}
-                    formatter={(value: number, name: string) => [
-                      `${value} ${value === 1 ? 'aluno' : 'alunos'}`, 
-                      'Quantidade'
-                    ]}
-                  />
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={36}
-                    formatter={(value: string, entry: any) => 
-                      `${entry.payload.gender} (${entry.payload.count} ${entry.payload.count === 1 ? 'aluno' : 'alunos'})`
-                    }
-                    wrapperStyle={{
-                      color: 'hsl(var(--foreground))',
-                      fontSize: '14px'
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {dashboardData.gradeDistribution.reduce((sum, item) => sum + item.count, 0) === 0 ? (
+                <div className="flex items-center justify-center h-[320px] text-muted-foreground">
+                  <p>Nenhuma nota cadastrada</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={320}>
+                  <PieChart>
+                    <Pie
+                      data={dashboardData.gradeDistribution.filter(item => item.count > 0)}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ range, percent }) => percent > 0.05 ? `${range}: ${(percent * 100).toFixed(0)}%` : ''}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {dashboardData.gradeDistribution.filter(item => item.count > 0).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        boxShadow: 'var(--shadow-elegant)',
+                        color: 'hsl(var(--popover-foreground))'
+                      }}
+                      labelStyle={{
+                        color: 'hsl(var(--popover-foreground))'
+                      }}
+                      itemStyle={{
+                        color: 'hsl(var(--popover-foreground))'
+                      }}
+                      formatter={(value: number, name: string) => [
+                        `${value} ${value === 1 ? 'nota' : 'notas'}`, 
+                        'Quantidade'
+                      ]}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      wrapperStyle={{
+                        color: 'hsl(var(--foreground))',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
