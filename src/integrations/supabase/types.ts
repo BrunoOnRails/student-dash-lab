@@ -151,39 +151,39 @@ export type Database = {
       }
       students: {
         Row: {
+          average_income: number | null
           course: string | null
           course_id: string
           created_at: string
           email: string | null
+          ethnicity: string | null
+          gender: string | null
           id: string
           name: string
-          raca: string | null
-          renda_media: number | null
-          sexo: string | null
           student_id: string
         }
         Insert: {
+          average_income?: number | null
           course?: string | null
           course_id: string
           created_at?: string
           email?: string | null
+          ethnicity?: string | null
+          gender?: string | null
           id?: string
           name: string
-          raca?: string | null
-          renda_media?: number | null
-          sexo?: string | null
           student_id: string
         }
         Update: {
+          average_income?: number | null
           course?: string | null
           course_id?: string
           created_at?: string
           email?: string | null
+          ethnicity?: string | null
+          gender?: string | null
           id?: string
           name?: string
-          raca?: string | null
-          renda_media?: number | null
-          sexo?: string | null
           student_id?: string
         }
         Relationships: [
