@@ -469,6 +469,8 @@ const Dashboard = () => {
                     domain={[0, 10]} 
                     tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
                     axisLine={{ stroke: 'hsl(var(--border))' }}
+                    tickFormatter={(value) => Math.round(value).toString()}
+                    allowDecimals={false}
                   />
                   <Tooltip 
                     contentStyle={{ 
