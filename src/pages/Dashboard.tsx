@@ -126,7 +126,7 @@ const Dashboard = () => {
       // Performance by subject - simplified since we removed subject join
       const uniqueStudents = [...new Set(grades.map(g => g.student_id))];
       const performanceBySubject = [
-        { name: 'Média Geral', average: grades.length > 0 ? grades.reduce((sum, g) => sum + Number(g.grade), 0) / grades.length : 0, students: uniqueStudents.length }
+        { name: 'Média Geral', average: grades.length > 0 ? Number((grades.reduce((sum, g) => sum + Number(g.grade), 0) / grades.length).toFixed(2)) : 0, students: uniqueStudents.length }
       ];
 
       // Grades trend by assessment type
@@ -142,7 +142,7 @@ const Dashboard = () => {
       const gradesTrend = Object.entries(assessmentGroups).map(([type, gradesList]: [string, any]) => ({
         assessment: type,
         average: (gradesList as number[]).length > 0 ? 
-          (gradesList as number[]).reduce((sum, grade) => sum + grade, 0) / (gradesList as number[]).length : 0
+          Number(((gradesList as number[]).reduce((sum, grade) => sum + grade, 0) / (gradesList as number[]).length).toFixed(2)) : 0
       }));
 
       // Gender distribution
