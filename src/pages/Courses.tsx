@@ -329,17 +329,31 @@ const Courses = () => {
     reader.readAsArrayBuffer(file);
   };
 
+  // Helper function to get value from row with case-insensitive key matching
+  const getRowValue = (row: any, keys: string[]): string => {
+    const rowKeys = Object.keys(row);
+    for (const key of keys) {
+      const foundKey = rowKeys.find(k => k.toLowerCase() === key.toLowerCase());
+      if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null) {
+        return String(row[foundKey]).trim();
+      }
+    }
+    return '';
+  };
+
   const processCourses = async () => {
     try {
       const coursesToInsert = uploadedData.map(row => {
-        const totalSemestersRaw = row.Total_Semestres || row.TotalSemestres || row.Semestres || row.total_semesters || row.Total_semesters || '';
-        const startDateRaw = row.Data_Inicio || row.DataInicio || row.Inicio || row.start_date || row.Start_date || '';
+        const name = getRowValue(row, ['Nome', 'Name', 'name']);
+        const code = getRowValue(row, ['Codigo', 'Código', 'Code', 'code']);
+        const totalSemestersRaw = getRowValue(row, ['Total_Semestres', 'TotalSemestres', 'Semestres', 'total_semesters', 'Total_semesters']);
+        const startDateRaw = getRowValue(row, ['Data_Inicio', 'DataInicio', 'Inicio', 'start_date', 'Start_date']);
         
         return {
-          name: String(row.Nome || row.Name || row.name || '').trim(),
-          code: String(row.Codigo || row.Code || row.code || '').trim() || null,
-          total_semesters: totalSemestersRaw ? parseInt(String(totalSemestersRaw), 10) : 8,
-          start_date: startDateRaw ? String(startDateRaw).trim() : new Date().toISOString().split('T')[0],
+          name,
+          code: code || null,
+          total_semesters: totalSemestersRaw ? parseInt(totalSemestersRaw, 10) : 8,
+          start_date: startDateRaw || new Date().toISOString().split('T')[0],
           user_id: user?.id
         };
       }).filter(course => course.name);
@@ -363,7 +377,6 @@ const Courses = () => {
       setUploadedData([]);
       setShowUploadDialog(false);
     } catch (error) {
-      console.error('Error importing courses:', error);
       toast({
         title: "Erro ao importar cursos",
         description: error instanceof Error ? error.message : "Verifique os dados e tente novamente",
@@ -458,8 +471,8 @@ const Courses = () => {
                       <TableBody>
                         {uploadedData.slice(0, 5).map((row, index) => (
                           <TableRow key={index}>
-                            <TableCell>{row.Nome || row.Name || row.name || ''}</TableCell>
-                            <TableCell>{row.Codigo || row.Code || row.code || ''}</TableCell>
+                            <TableCell>{getRowValue(row, ['Nome', 'Name', 'name'])}</TableCell>
+                            <TableCell>{getRowValue(row, ['Codigo', 'Código', 'Code', 'code'])}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
