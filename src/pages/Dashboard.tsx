@@ -216,19 +216,17 @@ const Dashboard = () => {
       .select(`
         assessment_type,
         max_grade,
-        students!inner(
-          subject_id,
-          subjects!inner(
-            id,
-            name,
-            professor_id
-          )
+        subject_id,
+        subjects!inner(
+          id,
+          name,
+          professor_id
         )
       `)
-      .eq("students.subjects.professor_id", user.id);
+      .eq("subjects.professor_id", user.id);
 
     if (selectedSubject !== "all") {
-      query = query.eq("students.subject_id", selectedSubject);
+      query = query.eq("subject_id", selectedSubject);
     }
 
     const { data, error } = await query;
@@ -239,7 +237,7 @@ const Dashboard = () => {
     }
 
     // Aggregate data by assessment type
-    const aggregated = data.reduce((acc: Record<string, { total: number; count: number }>, curr: any) => {
+    const aggregated = (data || []).reduce((acc: Record<string, { total: number; count: number }>, curr: any) => {
       const type = curr.assessment_type;
       if (!acc[type]) {
         acc[type] = { total: 0, count: 0 };
@@ -251,7 +249,7 @@ const Dashboard = () => {
 
     const formattedData = Object.entries(aggregated).map(([type, data]) => ({
       assessment_type: type,
-      total_points: data.total,
+      total_points: Number(data.total.toFixed(2)),
       count: data.count,
     }));
 
