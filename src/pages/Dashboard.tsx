@@ -26,6 +26,13 @@ interface Subject {
   id: string;
   name: string;
   code: string;
+  course_id: string | null;
+}
+
+interface Course {
+  id: string;
+  name: string;
+  code: string;
 }
 
 interface AssessmentDistribution {
@@ -51,7 +58,9 @@ const Dashboard = () => {
     incomeDistribution: []
   });
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [selectedCourse, setSelectedCourse] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [distributionData, setDistributionData] = useState<AssessmentDistribution[]>([]);
 
@@ -59,17 +68,32 @@ const Dashboard = () => {
     if (user) {
       fetchDashboardData();
     }
-  }, [user, selectedSubject]);
+  }, [user, selectedSubject, selectedCourse]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
 
-      // Fetch subjects
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
+      // Fetch courses
+      const { data: coursesData, error: coursesError } = await supabase
+        .from('courses')
         .select('id, name, code')
+        .eq('user_id', user?.id);
+
+      if (coursesError) throw coursesError;
+      setCourses(coursesData || []);
+
+      // Fetch subjects
+      let subjectsQuery = supabase
+        .from('subjects')
+        .select('id, name, code, course_id')
         .eq('professor_id', user?.id);
+
+      if (selectedCourse !== 'all') {
+        subjectsQuery = subjectsQuery.eq('course_id', selectedCourse);
+      }
+
+      const { data: subjectsData, error: subjectsError } = await subjectsQuery;
 
       if (subjectsError) throw subjectsError;
       setSubjects(subjectsData || []);
@@ -279,20 +303,40 @@ const Dashboard = () => {
             <p className="text-lg text-muted-foreground mt-2">Análise completa de desempenho acadêmico</p>
           </div>
           
-          <div className="w-72">
-            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-              <SelectTrigger className="bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors">
-                <SelectValue placeholder="Filtrar por disciplina" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as disciplinas</SelectItem>
-                {subjects.map((subject) => (
-                  <SelectItem key={subject.id} value={subject.id}>
-                    {subject.code} - {subject.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex gap-4">
+            <div className="w-56">
+              <Select value={selectedCourse} onValueChange={(value) => {
+                setSelectedCourse(value);
+                setSelectedSubject('all');
+              }}>
+                <SelectTrigger className="bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                  <SelectValue placeholder="Filtrar por curso" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os cursos</SelectItem>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.code} - {course.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-56">
+              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                <SelectTrigger className="bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                  <SelectValue placeholder="Filtrar por disciplina" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as disciplinas</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.code} - {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
