@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useDropzone } from "react-dropzone";
+import * as XLSX from "xlsx";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -42,9 +45,12 @@ interface Subject {
 
 const Grades = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [uploadedData, setUploadedData] = useState<any[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
 
@@ -217,6 +223,191 @@ const Grades = () => {
     });
   };
 
+  // Import functionality
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        let jsonData: any[] = [];
+        
+        if (file.name.toLowerCase().endsWith('.csv')) {
+          const text = e.target?.result as string;
+          const lines = text.trim().split('\n');
+          if (lines.length < 2) throw new Error('Arquivo vazio');
+          
+          const separators = [',', ';', '\t'];
+          let bestResult: any[] = [];
+          
+          for (const separator of separators) {
+            const headers = lines[0].split(separator).map(h => h.trim().replace(/["\r]/g, ''));
+            const rows = lines.slice(1).map(line => {
+              const values = line.split(separator).map(v => v.trim().replace(/["\r]/g, ''));
+              const row: any = {};
+              headers.forEach((header, index) => {
+                row[header] = values[index] || '';
+              });
+              return row;
+            });
+            
+            const nonEmptyCells = rows.reduce((count, row) => {
+              return count + Object.values(row).filter(v => v && String(v).trim()).length;
+            }, 0);
+            
+            if (nonEmptyCells > bestResult.reduce((count, row) => {
+              return count + Object.values(row).filter(v => v && String(v).trim()).length;
+            }, 0)) {
+              bestResult = rows;
+            }
+          }
+          jsonData = bestResult;
+        } else {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          jsonData = XLSX.utils.sheet_to_json(worksheet);
+        }
+        
+        if (jsonData.length === 0) {
+          throw new Error('Arquivo vazio ou sem dados válidos');
+        }
+        
+        setUploadedData(jsonData);
+        toast.success(`${jsonData.length} registros encontrados`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Erro ao processar arquivo");
+      }
+    };
+    
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      reader.readAsText(file, 'UTF-8');
+    } else {
+      reader.readAsArrayBuffer(file);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'text/csv': ['.csv']
+    },
+    multiple: false
+  });
+
+  const getRowValue = (row: any, keys: string[]): string => {
+    const rowKeys = Object.keys(row);
+    for (const key of keys) {
+      const foundKey = rowKeys.find(k => k.toLowerCase() === key.toLowerCase());
+      if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null) {
+        return String(row[foundKey]).trim();
+      }
+    }
+    return '';
+  };
+
+  const parseDecimal = (value: any): number => {
+    if (!value) return 0;
+    const str = String(value).replace(',', '.');
+    return Number(str) || 0;
+  };
+
+  const processGrades = async () => {
+    try {
+      const gradesToProcess = uploadedData.map(row => ({
+        student_id: getRowValue(row, ['Matricula', 'matricula', 'Student_ID', 'student_id']),
+        subject: getRowValue(row, ['Disciplina', 'disciplina', 'Subject', 'subject', 'subject_code', 'codigo_disciplina']),
+        assessment_type: getRowValue(row, ['Tipo', 'tipo', 'Assessment_Type', 'assessment_type']) || 'Prova',
+        assessment_name: getRowValue(row, ['Avaliacao', 'avaliacao', 'Avaliação', 'Assessment_Name', 'assessment_name']),
+        grade: parseDecimal(getRowValue(row, ['Nota', 'nota', 'Grade', 'grade'])),
+        max_grade: parseDecimal(getRowValue(row, ['Nota_Maxima', 'nota_maxima', 'Max_Grade', 'max_grade'])) || 10,
+        date_assigned: getRowValue(row, ['Data', 'data', 'Date_Assigned', 'date_assigned']) || new Date().toISOString().split('T')[0],
+      }));
+
+      // Validate required fields
+      const missingSubject = gradesToProcess.some(g => !g.subject);
+      if (missingSubject) {
+        throw new Error('Todas as notas devem ter uma disciplina informada');
+      }
+
+      const missingStudent = gradesToProcess.some(g => !g.student_id);
+      if (missingStudent) {
+        throw new Error('Todas as notas devem ter uma matrícula informada');
+      }
+
+      // Get subjects from current user
+      const { data: subjectsData } = await supabase
+        .from('subjects')
+        .select('id, name, code')
+        .eq('professor_id', user?.id);
+
+      if (!subjectsData || subjectsData.length === 0) {
+        throw new Error('Você precisa criar disciplinas antes de importar notas');
+      }
+
+      // Create subject map
+      const subjectMap = new Map<string, string>();
+      subjectsData.forEach(subject => {
+        if (subject.name) subjectMap.set(subject.name.toLowerCase().trim(), subject.id);
+        if (subject.code) subjectMap.set(subject.code.toLowerCase().trim(), subject.id);
+      });
+
+      // Get students
+      const studentIds = gradesToProcess.map(g => g.student_id).filter(Boolean);
+      const { data: studentsData } = await supabase
+        .from('students')
+        .select('id, student_id')
+        .in('student_id', studentIds);
+
+      if (!studentsData || studentsData.length === 0) {
+        throw new Error('Nenhum aluno encontrado com as matrículas informadas');
+      }
+
+      const studentMap = new Map<string, string>();
+      studentsData.forEach(student => {
+        studentMap.set(student.student_id.toLowerCase().trim(), student.id);
+      });
+
+      // Process grades
+      const validGrades = gradesToProcess.map(grade => {
+        const subjectKey = grade.subject.toLowerCase().trim();
+        const subjectId = subjectMap.get(subjectKey);
+        const studentKey = grade.student_id.toLowerCase().trim();
+        const studentDbId = studentMap.get(studentKey);
+
+        if (!subjectId || !studentDbId) return null;
+
+        return {
+          student_id: studentDbId,
+          subject_id: subjectId,
+          assessment_type: grade.assessment_type,
+          assessment_name: grade.assessment_name || grade.assessment_type,
+          grade: grade.grade,
+          max_grade: grade.max_grade,
+          date_assigned: grade.date_assigned,
+        };
+      }).filter(Boolean);
+
+      if (validGrades.length === 0) {
+        throw new Error('Nenhuma nota válida para importar. Verifique se as disciplinas e matrículas correspondem aos cadastrados.');
+      }
+
+      const { error } = await supabase.from('grades').insert(validGrades);
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["grades"] });
+      toast.success(`${validGrades.length} notas importadas com sucesso!`);
+      setUploadedData([]);
+      setIsUploadDialogOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao importar notas");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -228,10 +419,16 @@ const Grades = () => {
               Visualize e edite as notas importadas
             </p>
           </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Lançar Nota
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Importar Planilha
+            </Button>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Lançar Nota
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -485,6 +682,113 @@ const Grades = () => {
                 </Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de Importação */}
+        <Dialog open={isUploadDialogOpen} onOpenChange={(open) => {
+          setIsUploadDialogOpen(open);
+          if (!open) setUploadedData([]);
+        }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Importar Notas</DialogTitle>
+              <DialogDescription>
+                Faça upload de uma planilha com as notas dos alunos
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium mb-2">Colunas aceitas:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li><strong>Matricula</strong> - Matrícula do aluno (obrigatório)</li>
+                  <li><strong>Disciplina</strong> - Nome ou código da disciplina (obrigatório)</li>
+                  <li><strong>Nota</strong> - Valor da nota</li>
+                  <li><strong>Nota_Maxima</strong> - Valor máximo (padrão: 10)</li>
+                  <li><strong>Tipo</strong> - Tipo de avaliação (Prova, Trabalho, etc.)</li>
+                  <li><strong>Avaliacao</strong> - Nome da avaliação</li>
+                  <li><strong>Data</strong> - Data da avaliação</li>
+                </ul>
+              </div>
+
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <Upload className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
+                {isDragActive ? (
+                  <p className="text-primary">Solte o arquivo aqui...</p>
+                ) : (
+                  <div>
+                    <p className="text-muted-foreground">
+                      Arraste um arquivo ou clique para selecionar
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Formatos aceitos: .xlsx, .xls, .csv
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {uploadedData.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                    <span>{uploadedData.length} registros encontrados</span>
+                  </div>
+                  
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Matrícula</TableHead>
+                          <TableHead>Disciplina</TableHead>
+                          <TableHead>Nota</TableHead>
+                          <TableHead>Tipo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {uploadedData.slice(0, 5).map((row, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{getRowValue(row, ['Matricula', 'matricula', 'Student_ID', 'student_id'])}</TableCell>
+                            <TableCell>{getRowValue(row, ['Disciplina', 'disciplina', 'Subject', 'subject'])}</TableCell>
+                            <TableCell>{getRowValue(row, ['Nota', 'nota', 'Grade', 'grade'])}</TableCell>
+                            <TableCell>{getRowValue(row, ['Tipo', 'tipo', 'Assessment_Type', 'assessment_type'])}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {uploadedData.length > 5 && (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        ... e mais {uploadedData.length - 5} registros
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsUploadDialogOpen(false);
+                  setUploadedData([]);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={processGrades}
+                disabled={uploadedData.length === 0}
+              >
+                Importar {uploadedData.length} notas
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </main>
