@@ -362,15 +362,27 @@ const Grades = () => {
 
   const processGrades = async () => {
     try {
-      const gradesToProcess = uploadedData.map(row => ({
-        student_id: getRowValue(row, ['Matricula', 'matricula', 'Student_ID', 'student_id']),
-        subject: getRowValue(row, ['Disciplina', 'disciplina', 'Subject', 'subject', 'subject_code', 'codigo_disciplina']),
-        assessment_type: getRowValue(row, ['Tipo', 'tipo', 'Assessment_Type', 'assessment_type']) || 'Prova',
-        assessment_name: getRowValue(row, ['Avaliacao', 'avaliacao', 'Avaliação', 'Assessment_Name', 'assessment_name']),
-        grade: parseDecimal(getRowValue(row, ['Nota', 'nota', 'Grade', 'grade'])),
-        max_grade: parseDecimal(getRowValue(row, ['Nota_Maxima', 'nota_maxima', 'Max_Grade', 'max_grade'])) || 10,
-        date_assigned: parseExcelDate(getRowValue(row, ['Data', 'data', 'Date_Assigned', 'date_assigned'])) || new Date().toISOString().split('T')[0],
-      }));
+      const gradesToProcess = uploadedData.map(row => {
+        // Get the assessment name from Tipo column (e.g., "Prova 1", "Trabalho", "Seminário")
+        const tipoValue = getRowValue(row, ['Tipo', 'tipo', 'Assessment_Type', 'assessment_type']);
+        const avaliacaoValue = getRowValue(row, ['Avaliacao', 'avaliacao', 'Avaliação', 'Assessment_Name', 'assessment_name']);
+        
+        // Use Tipo as assessment_name if Avaliacao is not provided
+        const assessmentName = avaliacaoValue || tipoValue || 'Avaliação';
+        
+        // Extract assessment type from the name (e.g., "Prova 1" -> "Prova", "Trabalho" -> "Trabalho")
+        const assessmentType = tipoValue ? tipoValue.split(/\s+\d/)[0] : 'Prova';
+        
+        return {
+          student_id: getRowValue(row, ['Matricula', 'matricula', 'Student_ID', 'student_id']),
+          subject: getRowValue(row, ['Disciplina', 'disciplina', 'Subject', 'subject', 'subject_code', 'codigo_disciplina']),
+          assessment_type: assessmentType,
+          assessment_name: assessmentName,
+          grade: parseDecimal(getRowValue(row, ['Nota', 'nota', 'Grade', 'grade'])),
+          max_grade: parseDecimal(getRowValue(row, ['Nota_Maxima', 'nota_maxima', 'Max_Grade', 'max_grade'])) || 10,
+          date_assigned: parseExcelDate(getRowValue(row, ['Data', 'data', 'Date_Assigned', 'date_assigned'])) || new Date().toISOString().split('T')[0],
+        };
+      });
 
       // Validate required fields
       const missingSubject = gradesToProcess.some(g => !g.subject);
