@@ -108,18 +108,31 @@ const Dashboard = () => {
         return;
       }
 
-      // Fetch students count with demographic data
-      const { data: allStudents, error: studentsError } = await supabase
+      // Fetch students count with demographic data - filtered by course
+      let studentsQuery = supabase
         .from('students')
-        .select('id, gender, average_income, ethnicity');
+        .select('id, gender, average_income, ethnicity, course_id');
+
+      if (selectedCourse !== 'all') {
+        studentsQuery = studentsQuery.eq('course_id', selectedCourse);
+      }
+
+      const { data: allStudents, error: studentsError } = await studentsQuery;
 
       if (studentsError) throw studentsError;
       const studentsCount = allStudents?.length || 0;
 
-      // Fetch grades with student info (simplificado sem joins profundos)
-      const { data: gradesData, error: gradesError } = await (supabase as any)
+      // Fetch grades with student info - filtered by subject and course
+      let gradesQuery = supabase
         .from('grades')
-        .select('*, students!inner(id, name, student_id, course_id)')
+        .select('*, students!inner(id, name, student_id, course_id), subjects!inner(id, course_id)')
+        .in('subject_id', subjectFilter);
+
+      if (selectedCourse !== 'all') {
+        gradesQuery = gradesQuery.eq('subjects.course_id', selectedCourse);
+      }
+
+      const { data: gradesData, error: gradesError } = await (gradesQuery as any)
         .order('date_assigned', { ascending: false })
         .limit(100);
 
@@ -244,10 +257,15 @@ const Dashboard = () => {
         subjects!inner(
           id,
           name,
-          professor_id
+          professor_id,
+          course_id
         )
       `)
       .eq("subjects.professor_id", user.id);
+
+    if (selectedCourse !== "all") {
+      query = query.eq("subjects.course_id", selectedCourse);
+    }
 
     if (selectedSubject !== "all") {
       query = query.eq("subject_id", selectedSubject);
