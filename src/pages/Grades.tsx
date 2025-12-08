@@ -321,6 +321,45 @@ const Grades = () => {
     return Number(str) || 0;
   };
 
+  const parseExcelDate = (value: any): string => {
+    if (!value) return '';
+    const strValue = String(value).trim();
+    
+    // If it's already a date string (YYYY-MM-DD or DD/MM/YYYY format)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(strValue)) {
+      return strValue;
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(strValue)) {
+      const [day, month, year] = strValue.split('/');
+      return `${year}-${month}-${day}`;
+    }
+    
+    // Excel serial date number conversion
+    const numValue = Number(strValue);
+    if (!isNaN(numValue) && numValue > 0 && numValue < 100000) {
+      // Excel dates start from 1900-01-01, serial 1 = 1900-01-01
+      // But Excel incorrectly considers 1900 as a leap year, so we adjust
+      const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899
+      const date = new Date(excelEpoch.getTime() + numValue * 24 * 60 * 60 * 1000);
+      return date.toISOString().split('T')[0];
+    }
+    
+    return strValue;
+  };
+
+  const formatDateForDisplay = (value: any): string => {
+    const dateStr = parseExcelDate(value);
+    if (!dateStr) return '';
+    
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return String(value);
+      return format(date, "dd/MM/yyyy", { locale: ptBR });
+    } catch {
+      return String(value);
+    }
+  };
+
   const processGrades = async () => {
     try {
       const gradesToProcess = uploadedData.map(row => ({
@@ -330,7 +369,7 @@ const Grades = () => {
         assessment_name: getRowValue(row, ['Avaliacao', 'avaliacao', 'Avaliação', 'Assessment_Name', 'assessment_name']),
         grade: parseDecimal(getRowValue(row, ['Nota', 'nota', 'Grade', 'grade'])),
         max_grade: parseDecimal(getRowValue(row, ['Nota_Maxima', 'nota_maxima', 'Max_Grade', 'max_grade'])) || 10,
-        date_assigned: getRowValue(row, ['Data', 'data', 'Date_Assigned', 'date_assigned']) || new Date().toISOString().split('T')[0],
+        date_assigned: parseExcelDate(getRowValue(row, ['Data', 'data', 'Date_Assigned', 'date_assigned'])) || new Date().toISOString().split('T')[0],
       }));
 
       // Validate required fields
@@ -772,6 +811,7 @@ const Grades = () => {
                           <TableHead>Disciplina</TableHead>
                           <TableHead>Nota</TableHead>
                           <TableHead>Tipo</TableHead>
+                          <TableHead>Data</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -781,6 +821,7 @@ const Grades = () => {
                             <TableCell>{getRowValue(row, ['Disciplina', 'disciplina', 'Subject', 'subject'])}</TableCell>
                             <TableCell>{getRowValue(row, ['Nota', 'nota', 'Grade', 'grade'])}</TableCell>
                             <TableCell>{getRowValue(row, ['Tipo', 'tipo', 'Assessment_Type', 'assessment_type'])}</TableCell>
+                            <TableCell>{formatDateForDisplay(getRowValue(row, ['Data', 'data', 'Date_Assigned', 'date_assigned']))}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
