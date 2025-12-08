@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, Upload, FileText, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload, FileText, Loader2, Filter, X } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -58,6 +59,13 @@ const Grades = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  
+  // Filter states
+  const [filterSubject, setFilterSubject] = useState<string>("all");
+  const [filterStudent, setFilterStudent] = useState<string>("all");
+  const [filterAssessmentType, setFilterAssessmentType] = useState<string>("all");
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
 
   const { data: grades, isLoading } = useQuery({
     queryKey: ["grades"],
@@ -498,6 +506,42 @@ const Grades = () => {
     }
   };
 
+  // Get unique assessment types for filter
+  const assessmentTypes = Array.from(new Set(grades?.map(g => g.assessment_type).filter(Boolean) || []));
+
+  // Filter grades
+  const filteredGrades = grades?.filter(grade => {
+    // Filter by subject
+    if (filterSubject !== "all" && grade.subject_id !== filterSubject) return false;
+    
+    // Filter by student
+    if (filterStudent !== "all" && grade.student_id !== filterStudent) return false;
+    
+    // Filter by assessment type
+    if (filterAssessmentType !== "all" && grade.assessment_type !== filterAssessmentType) return false;
+    
+    // Filter by date range
+    if (filterDateFrom && grade.date_assigned) {
+      if (new Date(grade.date_assigned) < new Date(filterDateFrom)) return false;
+    }
+    if (filterDateTo && grade.date_assigned) {
+      if (new Date(grade.date_assigned) > new Date(filterDateTo)) return false;
+    }
+    
+    return true;
+  }) || [];
+
+  const clearFilters = () => {
+    setFilterSubject("all");
+    setFilterStudent("all");
+    setFilterAssessmentType("all");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+  };
+
+  const hasActiveFilters = filterSubject !== "all" || filterStudent !== "all" || 
+    filterAssessmentType !== "all" || filterDateFrom || filterDateTo;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -521,6 +565,117 @@ const Grades = () => {
           </div>
         </div>
 
+        {/* Stats Card */}
+        <Card className="mb-6">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-8">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total de Notas</p>
+                  <p className="text-3xl font-bold">{grades?.length || 0}</p>
+                </div>
+                {hasActiveFilters && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Notas Filtradas</p>
+                    <p className="text-3xl font-bold text-primary">{filteredGrades.length}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">Filtros</span>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto">
+                  <X className="h-4 w-4 mr-1" />
+                  Limpar Filtros
+                </Button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Subject Filter */}
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Disciplina</Label>
+                <Select value={filterSubject} onValueChange={setFilterSubject}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as disciplinas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as disciplinas</SelectItem>
+                    {subjects?.map((subject) => (
+                      <SelectItem key={subject.id} value={subject.id}>
+                        {subject.name} ({subject.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Student Filter */}
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Aluno</Label>
+                <Select value={filterStudent} onValueChange={setFilterStudent}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os alunos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os alunos</SelectItem>
+                    {students?.map((student) => (
+                      <SelectItem key={student.id} value={student.id}>
+                        {student.name} ({student.student_id})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Assessment Type Filter */}
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Tipo de Avaliação</Label>
+                <Select value={filterAssessmentType} onValueChange={setFilterAssessmentType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os tipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os tipos</SelectItem>
+                    {assessmentTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date From Filter */}
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Data Inicial</Label>
+                <Input
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                />
+              </div>
+
+              {/* Date To Filter */}
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Data Final</Label>
+                <Input
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {isLoading ? (
           <p>Carregando...</p>
         ) : (
@@ -538,44 +693,54 @@ const Grades = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {grades?.map((grade) => (
-                  <TableRow key={grade.id}>
-                    <TableCell className="font-medium">{grade.students?.name || "-"}</TableCell>
-                    <TableCell>{grade.students?.student_id || "-"}</TableCell>
-                    <TableCell>{grade.assessment_name}</TableCell>
-                    <TableCell>{grade.assessment_type}</TableCell>
-                    <TableCell>
-                      {grade.grade} / {grade.max_grade}
-                    </TableCell>
-                    <TableCell>
-                      {grade.date_assigned
-                        ? format(new Date(grade.date_assigned), "dd/MM/yyyy", { locale: ptBR })
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(grade)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm("Deseja realmente excluir esta nota?")) {
-                              deleteGradeMutation.mutate(grade.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {filteredGrades.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      {hasActiveFilters 
+                        ? "Nenhuma nota encontrada com os filtros aplicados" 
+                        : "Nenhuma nota lançada ainda"}
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredGrades.map((grade) => (
+                    <TableRow key={grade.id}>
+                      <TableCell className="font-medium">{grade.students?.name || "-"}</TableCell>
+                      <TableCell>{grade.students?.student_id || "-"}</TableCell>
+                      <TableCell>{grade.assessment_name}</TableCell>
+                      <TableCell>{grade.assessment_type}</TableCell>
+                      <TableCell>
+                        {grade.grade} / {grade.max_grade}
+                      </TableCell>
+                      <TableCell>
+                        {grade.date_assigned
+                          ? format(new Date(grade.date_assigned), "dd/MM/yyyy", { locale: ptBR })
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(grade)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm("Deseja realmente excluir esta nota?")) {
+                                deleteGradeMutation.mutate(grade.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
