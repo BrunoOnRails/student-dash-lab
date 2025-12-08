@@ -94,9 +94,9 @@ const Auth = () => {
     } else {
       toast({
         title: 'Cadastro realizado com sucesso!',
-        description: 'Por favor, verifique seu email para confirmar sua conta.',
+        description: 'Você foi autenticado automaticamente.',
       });
-      setEmail('');
+      navigate('/');
       setPassword('');
       setFullName('');
     }
