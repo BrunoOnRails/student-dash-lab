@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,11 +12,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, Upload, FileText, Loader2, Filter, X } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload, FileText, Loader2, Filter, X, Check, ChevronsUpDown, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 interface Grade {
   id: string;
@@ -66,6 +69,7 @@ const Grades = () => {
   const [filterAssessmentType, setFilterAssessmentType] = useState<string>("all");
   const [filterDateFrom, setFilterDateFrom] = useState<string>("");
   const [filterDateTo, setFilterDateTo] = useState<string>("");
+  const [studentSearchOpen, setStudentSearchOpen] = useState(false);
 
   const { data: grades, isLoading } = useQuery({
     queryKey: ["grades"],
@@ -617,22 +621,67 @@ const Grades = () => {
                 </Select>
               </div>
 
-              {/* Student Filter */}
+              {/* Student Filter - Searchable */}
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Aluno</Label>
-                <Select value={filterStudent} onValueChange={setFilterStudent}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos os alunos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os alunos</SelectItem>
-                    {students?.map((student) => (
-                      <SelectItem key={student.id} value={student.id}>
-                        {student.name} ({student.student_id})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={studentSearchOpen} onOpenChange={setStudentSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={studentSearchOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {filterStudent === "all" 
+                        ? "Todos os alunos" 
+                        : students?.find(s => s.id === filterStudent)?.name || "Selecione..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar aluno pelo nome..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum aluno encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="all"
+                            onSelect={() => {
+                              setFilterStudent("all");
+                              setStudentSearchOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                filterStudent === "all" ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            Todos os alunos
+                          </CommandItem>
+                          {students?.map((student) => (
+                            <CommandItem
+                              key={student.id}
+                              value={`${student.name} ${student.student_id}`}
+                              onSelect={() => {
+                                setFilterStudent(student.id);
+                                setStudentSearchOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  filterStudent === student.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {student.name} ({student.student_id})
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Assessment Type Filter */}
