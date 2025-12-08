@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, Upload, FileText } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload, FileText, Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -43,6 +44,8 @@ interface Subject {
   code: string;
 }
 
+const BATCH_SIZE = 100; // Insert grades in batches of 100
+
 const Grades = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -53,6 +56,8 @@ const Grades = () => {
   const [uploadedData, setUploadedData] = useState<any[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const { data: grades, isLoading } = useQuery({
     queryKey: ["grades"],
@@ -396,14 +401,32 @@ const Grades = () => {
         throw new Error('Nenhuma nota válida para importar. Verifique se as disciplinas e matrículas correspondem aos cadastrados.');
       }
 
-      const { error } = await supabase.from('grades').insert(validGrades);
-      if (error) throw error;
+      // Insert in batches for better performance
+      setIsImporting(true);
+      setImportProgress({ current: 0, total: validGrades.length });
 
+      let insertedCount = 0;
+      const totalBatches = Math.ceil(validGrades.length / BATCH_SIZE);
+
+      for (let i = 0; i < validGrades.length; i += BATCH_SIZE) {
+        const batch = validGrades.slice(i, i + BATCH_SIZE);
+        const { error } = await supabase.from('grades').insert(batch);
+        
+        if (error) throw error;
+        
+        insertedCount += batch.length;
+        setImportProgress({ current: insertedCount, total: validGrades.length });
+      }
+
+      setIsImporting(false);
+      setImportProgress(null);
       queryClient.invalidateQueries({ queryKey: ["grades"] });
       toast.success(`${validGrades.length} notas importadas com sucesso!`);
       setUploadedData([]);
       setIsUploadDialogOpen(false);
     } catch (error) {
+      setIsImporting(false);
+      setImportProgress(null);
       toast.error(error instanceof Error ? error.message : "Erro ao importar notas");
     }
   };
@@ -772,6 +795,21 @@ const Grades = () => {
               )}
             </div>
 
+            {isImporting && importProgress && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Importando notas...
+                  </span>
+                  <span className="font-medium">
+                    {importProgress.current} / {importProgress.total}
+                  </span>
+                </div>
+                <Progress value={(importProgress.current / importProgress.total) * 100} />
+              </div>
+            )}
+
             <DialogFooter>
               <Button
                 variant="outline"
@@ -779,14 +817,22 @@ const Grades = () => {
                   setIsUploadDialogOpen(false);
                   setUploadedData([]);
                 }}
+                disabled={isImporting}
               >
                 Cancelar
               </Button>
               <Button
                 onClick={processGrades}
-                disabled={uploadedData.length === 0}
+                disabled={uploadedData.length === 0 || isImporting}
               >
-                Importar {uploadedData.length} notas
+                {isImporting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Importando...
+                  </>
+                ) : (
+                  `Importar ${uploadedData.length} notas`
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
