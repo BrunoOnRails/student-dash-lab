@@ -406,15 +406,23 @@ export default function UploadData() {
         return Number(str) || 0;
       };
 
-      const gradesToInsert: Partial<GradeData>[] = uploadedData.map(row => ({
-        student_id: row.student_id || row.Student_ID || row.Matricula || row.matricula,
-        subject: row.subject || row.Subject || row.Disciplina || row.disciplina || row.subject_name || row.Subject_Name || row.nome_disciplina || row.subject_code || row.Subject_Code || row.codigo_disciplina,
-        assessment_type: row.assessment_type || row.Assessment_Type || row.Tipo || row.tipo || 'Prova',
-        assessment_name: row.assessment_name || row.Assessment_Name || row.Avaliacao || row.avaliacao || '',
-        grade: parseDecimal(row.grade || row.Grade || row.Nota || row.nota),
-        max_grade: parseDecimal(row.max_grade || row.Max_Grade || row.Nota_Maxima || row.nota_maxima || 10),
-        date_assigned: row.date_assigned || row.Date_Assigned || row.Data || row.data || new Date().toISOString().split('T')[0],
-      }));
+      const gradesToInsert: Partial<GradeData>[] = uploadedData.map(row => {
+        // Get the assessment name from Tipo column (e.g., "Prova 1", "Trabalho", "Seminário")
+        const assessmentName = String(row.assessment_name || row.Assessment_Name || row.Avaliacao || row.avaliacao || row.Tipo || row.tipo || 'Avaliação').trim();
+        
+        // Extract assessment type from the name (e.g., "Prova 1" -> "Prova", "Trabalho" -> "Trabalho")
+        const assessmentType = row.assessment_type || row.Assessment_Type || assessmentName.split(/\s+\d/)[0] || 'Prova';
+        
+        return {
+          student_id: row.student_id || row.Student_ID || row.Matricula || row.matricula,
+          subject: row.subject || row.Subject || row.Disciplina || row.disciplina || row.subject_name || row.Subject_Name || row.nome_disciplina || row.subject_code || row.Subject_Code || row.codigo_disciplina,
+          assessment_type: assessmentType,
+          assessment_name: assessmentName,
+          grade: parseDecimal(row.grade || row.Grade || row.Nota || row.nota),
+          max_grade: parseDecimal(row.max_grade || row.Max_Grade || row.Nota_Maxima || row.nota_maxima || 10),
+          date_assigned: row.date_assigned || row.Date_Assigned || row.Data || row.data || new Date().toISOString().split('T')[0],
+        };
+      });
 
       // Validate required fields
       const missingSubject = gradesToInsert.some(g => !g.subject);
@@ -515,13 +523,17 @@ export default function UploadData() {
       let insertedCount = 0;
       let updatedCount = 0;
 
-      // Insert new grades
+      // Insert new grades in batches
+      const BATCH_SIZE = 500;
       if (newGrades.length > 0) {
-        const { error: insertError } = await supabase
-          .from('grades')
-          .insert(newGrades);
+        for (let i = 0; i < newGrades.length; i += BATCH_SIZE) {
+          const batch = newGrades.slice(i, i + BATCH_SIZE);
+          const { error: insertError } = await supabase
+            .from('grades')
+            .insert(batch);
 
-        if (insertError) throw insertError;
+          if (insertError) throw insertError;
+        }
         insertedCount = newGrades.length;
       }
 
