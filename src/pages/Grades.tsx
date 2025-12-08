@@ -458,26 +458,42 @@ const Grades = () => {
 
       let insertedCount = 0;
       const totalBatches = Math.ceil(validGrades.length / BATCH_SIZE);
+      let hasError = false;
+      let errorMessage = '';
 
       for (let i = 0; i < validGrades.length; i += BATCH_SIZE) {
         const batch = validGrades.slice(i, i + BATCH_SIZE);
         const { error } = await supabase.from('grades').insert(batch);
         
-        if (error) throw error;
-        
-        insertedCount += batch.length;
-        setImportProgress({ current: insertedCount, total: validGrades.length });
+        if (error) {
+          hasError = true;
+          errorMessage = error.message;
+          console.error('Erro ao inserir lote:', error);
+          // Continue processing remaining batches
+        } else {
+          insertedCount += batch.length;
+        }
+        setImportProgress({ current: Math.min(i + BATCH_SIZE, validGrades.length), total: validGrades.length });
       }
 
       setIsImporting(false);
       setImportProgress(null);
       queryClient.invalidateQueries({ queryKey: ["grades"] });
-      toast.success(`${validGrades.length} notas importadas com sucesso!`);
+      
+      if (hasError && insertedCount > 0) {
+        toast.warning(`${insertedCount} notas importadas. Algumas notas falharam: ${errorMessage}`);
+      } else if (hasError) {
+        toast.error(`Erro ao importar notas: ${errorMessage}`);
+      } else {
+        toast.success(`${validGrades.length} notas importadas com sucesso!`);
+      }
+      
       setUploadedData([]);
       setIsUploadDialogOpen(false);
     } catch (error) {
       setIsImporting(false);
       setImportProgress(null);
+      console.error('Erro na importação:', error);
       toast.error(error instanceof Error ? error.message : "Erro ao importar notas");
     }
   };
