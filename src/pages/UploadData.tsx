@@ -785,23 +785,41 @@ export default function UploadData() {
                 <table className="w-full border-collapse border border-border">
                   <thead>
                     <tr className="bg-muted">
-                      {Object.keys(uploadedData[0]).map((key) => (
-                        <th key={key} className="border border-border p-2 text-left">
-                          {key}
-                        </th>
-                      ))}
+                      {Object.keys(uploadedData[0])
+                        .filter(key => {
+                          // Hide date columns from grades preview
+                          if (dataType === 'grades') {
+                            const lowerKey = key.toLowerCase();
+                            return !['data', 'date_assigned', 'date'].includes(lowerKey);
+                          }
+                          return true;
+                        })
+                        .map((key) => (
+                          <th key={key} className="border border-border p-2 text-left">
+                            {key}
+                          </th>
+                        ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {uploadedData.slice(0, 5).map((row, index) => (
-                      <tr key={index}>
-                        {Object.values(row).map((value, cellIndex) => (
-                          <td key={cellIndex} className="border border-border p-2">
-                            {String(value)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
+                    {uploadedData.slice(0, 5).map((row, index) => {
+                      const filteredKeys = Object.keys(row).filter(key => {
+                        if (dataType === 'grades') {
+                          const lowerKey = key.toLowerCase();
+                          return !['data', 'date_assigned', 'date'].includes(lowerKey);
+                        }
+                        return true;
+                      });
+                      return (
+                        <tr key={index}>
+                          {filteredKeys.map((key) => (
+                            <td key={key} className="border border-border p-2">
+                              {String(row[key])}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
                 {uploadedData.length > 5 && (
