@@ -125,7 +125,7 @@ const Dashboard = () => {
       // Fetch grades with student info - filtered by subject and course
       let gradesQuery = supabase
         .from('grades')
-        .select('*, students!inner(id, name, student_id, course_id), subjects!inner(id, course_id)')
+        .select('*, students!inner(id, name, student_id, course_id), subjects!inner(id, name, course_id)')
         .in('subject_id', subjectFilter);
 
       if (selectedCourse !== 'all') {
@@ -134,7 +134,7 @@ const Dashboard = () => {
 
       const { data: gradesData, error: gradesError } = await (gradesQuery as any)
         .order('date_assigned', { ascending: false })
-        .limit(100);
+        .limit(1000);
 
       if (gradesError) throw gradesError;
 
@@ -160,11 +160,23 @@ const Dashboard = () => {
         ).length
       }));
 
-      // Performance by subject - simplified since we removed subject join
-      const uniqueStudents = [...new Set(grades.map(g => g.student_id))];
-      const performanceBySubject = [
-        { name: 'Média Geral', average: grades.length > 0 ? Number((grades.reduce((sum, g) => sum + Number(g.grade), 0) / grades.length).toFixed(2)) : 0, students: uniqueStudents.length }
-      ];
+      // Performance by subject - group grades by subject
+      const subjectGrades = grades.reduce((acc, grade) => {
+        const subjectId = grade.subject_id;
+        const subjectName = grade.subjects?.name || 'Sem disciplina';
+        if (!acc[subjectId]) {
+          acc[subjectId] = { name: subjectName, grades: [], students: new Set() };
+        }
+        acc[subjectId].grades.push(Number(grade.grade));
+        acc[subjectId].students.add(grade.student_id);
+        return acc;
+      }, {} as Record<string, { name: string; grades: number[]; students: Set<string> }>);
+
+      const performanceBySubject = Object.values(subjectGrades).map((subject: any) => ({
+        name: subject.name.length > 15 ? subject.name.substring(0, 15) + '...' : subject.name,
+        average: subject.grades.length > 0 ? Number((subject.grades.reduce((sum: number, g: number) => sum + g, 0) / subject.grades.length).toFixed(2)) : 0,
+        students: subject.students.size
+      }));
 
       // Grades trend by assessment type
       const assessmentGroups = grades.reduce((acc, grade) => {
