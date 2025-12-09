@@ -64,11 +64,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [distributionData, setDistributionData] = useState<AssessmentDistribution[]>([]);
 
-  // Reset selected subject when course changes
-  useEffect(() => {
-    setSelectedSubject('all');
-  }, [selectedCourse]);
-
   useEffect(() => {
     if (user) {
       fetchDashboardData();
@@ -103,15 +98,18 @@ const Dashboard = () => {
       if (subjectsError) throw subjectsError;
       setSubjects(subjectsData || []);
 
-      // Build subject filter
-      const subjectFilter = selectedSubject === 'all' ? 
-        (subjectsData?.map(s => s.id) || []) : 
-        [selectedSubject];
-
-      if (subjectFilter.length === 0) {
-        setLoading(false);
-        return;
+      // Reset subject selection if the selected subject is not in the filtered list
+      const validSubject = selectedSubject === 'all' || subjectsData?.find(s => s.id === selectedSubject);
+      const effectiveSubject = validSubject ? selectedSubject : 'all';
+      
+      if (!validSubject && selectedSubject !== 'all') {
+        setSelectedSubject('all');
       }
+
+      // Build subject filter
+      const subjectFilter = effectiveSubject === 'all' ? 
+        (subjectsData?.map(s => s.id) || []) : 
+        [effectiveSubject];
 
       // Fetch students count with demographic data - filtered by course
       let studentsQuery = supabase
@@ -127,21 +125,27 @@ const Dashboard = () => {
       if (studentsError) throw studentsError;
       const studentsCount = allStudents?.length || 0;
 
-      // Fetch grades with student info - filtered by subject and course
-      let gradesQuery = supabase
-        .from('grades')
-        .select('*, students!inner(id, name, student_id, course_id), subjects!inner(id, name, course_id)')
-        .in('subject_id', subjectFilter);
+      // If no subjects, set empty grades data
+      let gradesData: any[] = [];
+      
+      if (subjectFilter.length > 0) {
+        // Fetch grades with student info - filtered by subject and course
+        let gradesQuery = supabase
+          .from('grades')
+          .select('*, students!inner(id, name, student_id, course_id), subjects!inner(id, name, course_id)')
+          .in('subject_id', subjectFilter);
 
-      if (selectedCourse !== 'all') {
-        gradesQuery = gradesQuery.eq('subjects.course_id', selectedCourse);
+        if (selectedCourse !== 'all') {
+          gradesQuery = gradesQuery.eq('subjects.course_id', selectedCourse);
+        }
+
+        const { data, error: gradesError } = await (gradesQuery as any)
+          .order('date_assigned', { ascending: false })
+          .limit(1000);
+
+        if (gradesError) throw gradesError;
+        gradesData = data || [];
       }
-
-      const { data: gradesData, error: gradesError } = await (gradesQuery as any)
-        .order('date_assigned', { ascending: false })
-        .limit(1000);
-
-      if (gradesError) throw gradesError;
 
       // Calculate statistics - type cast to any[] to avoid deep type issues
       const grades = (gradesData || []) as any[];
@@ -345,7 +349,10 @@ const Dashboard = () => {
           
           <div className="flex gap-4">
             <div className="w-56">
-              <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+              <Select value={selectedCourse} onValueChange={(value) => {
+                setSelectedCourse(value);
+                setSelectedSubject('all');
+              }}>
                 <SelectTrigger className="bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors">
                   <SelectValue placeholder="Filtrar por curso" />
                 </SelectTrigger>
