@@ -159,7 +159,7 @@ const Auth = () => {
                   <Input
                     id="reset-email"
                     type="email"
-                    placeholder="professor@universidade.edu"
+                    placeholder="seu.email@institucional.edu"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                     required
@@ -195,7 +195,7 @@ const Auth = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="professor@universidade.edu"
+                    placeholder="seu.email@institucional.edu"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -273,7 +273,7 @@ const Auth = () => {
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="professor@universidade.edu"
+                    placeholder="seu.email@institucional.edu"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
