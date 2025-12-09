@@ -19,7 +19,7 @@ interface DashboardData {
   totalSubjects: number;
   averageGrade: number;
   gradeDistribution: Array<{ range: string; count: number }>;
-  performanceBySubject: Array<{ name: string; average: number; students: number }>;
+  performanceBySubject: Array<{ name: string; fullName: string; average: number; students: number }>;
   gradesTrend: Array<{ assessment: string; average: number }>;
   genderDistribution: Array<{ gender: string; count: number }>;
   raceDistribution: Array<{ race: string; count: number }>;
@@ -228,6 +228,7 @@ const Dashboard = () => {
 
       const performanceBySubject = Object.values(subjectGrades).map((subject: any) => ({
         name: subject.name.length > 15 ? subject.name.substring(0, 15) + '...' : subject.name,
+        fullName: subject.name,
         average: subject.grades.length > 0 ? Number((subject.grades.reduce((sum: number, g: number) => sum + g, 0) / subject.grades.length).toFixed(2)) : 0,
         students: subject.students.size
       }));
@@ -654,8 +655,8 @@ const Dashboard = () => {
                     }}
                     itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
                     labelStyle={{ color: 'hsl(var(--popover-foreground))', fontWeight: 'bold', marginBottom: '4px' }}
-                    formatter={(value: number) => [`Média: ${value.toFixed(2)}`, '']}
-                    labelFormatter={(label: string) => label}
+                    formatter={(value: number, name: string, props: any) => [`Média: ${value.toFixed(2)}`, '']}
+                    labelFormatter={(label: string, payload: any) => payload?.[0]?.payload?.fullName || label}
                   />
                   <Bar 
                     dataKey="average" 
