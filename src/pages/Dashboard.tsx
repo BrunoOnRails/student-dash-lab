@@ -145,9 +145,14 @@ const Dashboard = () => {
 
       // Calculate statistics - type cast to any[] to avoid deep type issues
       const grades = (gradesData || []) as any[];
-      const totalGrades = grades.length;
-      const averageGrade = totalGrades > 0 ? 
-        grades.reduce((sum, grade) => sum + Number(grade.grade), 0) / totalGrades : 0;
+      
+      // Calculate normalized average (grade/max_grade * 10) to show on 0-10 scale
+      const normalizedGrades = grades.map(grade => {
+        const maxGrade = Number(grade.max_grade) || 10;
+        return (Number(grade.grade) / maxGrade) * 10;
+      });
+      const averageGrade = normalizedGrades.length > 0 ? 
+        normalizedGrades.reduce((sum, g) => sum + g, 0) / normalizedGrades.length : 0;
 
       // Grade distribution
       const gradeRanges = [
