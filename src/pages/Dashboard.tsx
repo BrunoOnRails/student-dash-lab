@@ -129,21 +129,18 @@ const Dashboard = () => {
       let gradesData: any[] = [];
       
       if (subjectFilter.length > 0) {
-        // Fetch grades with student info - filtered by subject and course
-        let gradesQuery = supabase
+        // Fetch grades with student info - filtered by subject only (subject already filtered by course)
+        const { data, error: gradesError } = await supabase
           .from('grades')
-          .select('*, students!inner(id, name, student_id, course_id), subjects!inner(id, name, course_id)')
-          .in('subject_id', subjectFilter);
-
-        if (selectedCourse !== 'all') {
-          gradesQuery = gradesQuery.eq('subjects.course_id', selectedCourse);
-        }
-
-        const { data, error: gradesError } = await (gradesQuery as any)
+          .select('*, students(id, name, student_id, course_id), subjects(id, name, course_id)')
+          .in('subject_id', subjectFilter)
           .order('date_assigned', { ascending: false })
           .limit(1000);
 
-        if (gradesError) throw gradesError;
+        if (gradesError) {
+          console.error('Error fetching grades:', gradesError);
+          throw gradesError;
+        }
         gradesData = data || [];
       }
 
@@ -158,7 +155,7 @@ const Dashboard = () => {
       const averageGrade = normalizedGrades.length > 0 ? 
         normalizedGrades.reduce((sum, g) => sum + g, 0) / normalizedGrades.length : 0;
 
-      // Grade distribution
+      // Grade distribution - use normalized grades (0-10 scale)
       const gradeRanges = [
         { range: '0-2', min: 0, max: 2 },
         { range: '2-4', min: 2, max: 4 },
@@ -169,19 +166,17 @@ const Dashboard = () => {
 
       const gradeDistribution = gradeRanges.map(range => ({
         range: range.range,
-        count: grades.filter(grade => 
-          Number(grade.grade) >= range.min && Number(grade.grade) < range.max
-        ).length
+        count: normalizedGrades.filter(g => g >= range.min && g < range.max).length
       }));
 
-      // Performance by subject - group grades by subject
-      const subjectGrades = grades.reduce((acc, grade) => {
+      // Performance by subject - group grades by subject with normalized values
+      const subjectGrades = grades.reduce((acc, grade, index) => {
         const subjectId = grade.subject_id;
         const subjectName = grade.subjects?.name || 'Sem disciplina';
         if (!acc[subjectId]) {
           acc[subjectId] = { name: subjectName, grades: [], students: new Set() };
         }
-        acc[subjectId].grades.push(Number(grade.grade));
+        acc[subjectId].grades.push(normalizedGrades[index]);
         acc[subjectId].students.add(grade.student_id);
         return acc;
       }, {} as Record<string, { name: string; grades: number[]; students: Set<string> }>);
@@ -192,13 +187,13 @@ const Dashboard = () => {
         students: subject.students.size
       }));
 
-      // Grades trend by assessment type
-      const assessmentGroups = grades.reduce((acc, grade) => {
+      // Grades trend by assessment type - use normalized grades
+      const assessmentGroups = grades.reduce((acc, grade, index) => {
         const type = grade.assessment_type || 'Sem tipo';
         if (!acc[type]) {
           acc[type] = [];
         }
-        acc[type].push(Number(grade.grade));
+        acc[type].push(normalizedGrades[index]);
         return acc;
       }, {} as Record<string, number[]>);
 
