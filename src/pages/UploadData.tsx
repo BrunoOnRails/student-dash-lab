@@ -37,6 +37,13 @@ interface CourseData {
   start_date: string;
 }
 
+interface ImportError {
+  row: number;
+  studentName: string;
+  studentId: string;
+  reason: string;
+}
+
 export default function UploadData() {
   const [uploadedData, setUploadedData] = useState<any[]>([]);
   const [dataType, setDataType] = useState<'students' | 'grades' | 'courses' | null>(null);
@@ -46,6 +53,8 @@ export default function UploadData() {
   const [detectedColumns, setDetectedColumns] = useState<string[]>([]);
   const [detectionDetails, setDetectionDetails] = useState<string>('');
   const [showForceTypeDialog, setShowForceTypeDialog] = useState(false);
+  const [importErrors, setImportErrors] = useState<ImportError[]>([]);
+  const [showErrorsDialog, setShowErrorsDialog] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -245,8 +254,10 @@ export default function UploadData() {
 
   const processStudents = async () => {
     setIsProcessing(true);
+    const errors: ImportError[] = [];
+    
     try {
-      const studentsToInsert: StudentData[] = uploadedData.map(row => {
+      const studentsToInsert: StudentData[] = uploadedData.map((row, index) => {
         const genderRaw = String(row.Sexo || row.sexo || row.Sex || row.sex || row.Gender || row.gender || '').trim();
         const ethnicityRaw = String(row.Raça || row.Raca || row.raca || row.Race || row.Etnia || row.etnia || row.Ethnicity || row.ethnicity || '').trim();
         
@@ -257,23 +268,41 @@ export default function UploadData() {
           course: String(row.Curso || row.Course || row.course || '').trim(),
           gender: genderRaw ? capitalizeFirst(genderRaw) : undefined,
           average_income: parseFloat(String(row.Renda || row['Renda Média'] || row.renda_media || row['Renda Media'] || row.Income || row.average_income || '0').replace(',', '.')) || undefined,
-          ethnicity: ethnicityRaw ? capitalizeFirst(ethnicityRaw) : undefined
+          ethnicity: ethnicityRaw ? capitalizeFirst(ethnicityRaw) : undefined,
+          _rowIndex: index + 2 // +2 for header row and 1-based index
         };
       });
 
-      // Filter out empty records
-      const validStudents = studentsToInsert.filter(student => 
-        student.name && student.student_id
-      );
+      // Validate and track invalid records
+      const validStudents: (StudentData & { _rowIndex: number })[] = [];
+      studentsToInsert.forEach((student: any) => {
+        if (!student.name || !student.student_id) {
+          errors.push({
+            row: student._rowIndex,
+            studentName: student.name || '(sem nome)',
+            studentId: student.student_id || '(sem matrícula)',
+            reason: !student.name && !student.student_id 
+              ? 'Nome e matrícula vazios' 
+              : !student.name 
+                ? 'Nome vazio' 
+                : 'Matrícula vazia'
+          });
+        } else if (!student.course || student.course.trim() === '') {
+          errors.push({
+            row: student._rowIndex,
+            studentName: student.name,
+            studentId: student.student_id,
+            reason: 'Curso não informado'
+          });
+        } else {
+          validStudents.push(student);
+        }
+      });
 
       if (validStudents.length === 0) {
-        throw new Error('Nenhum aluno válido encontrado. Verifique se as colunas Nome e Matricula estão preenchidas.');
-      }
-
-      // Validate that all students have a course
-      const missingCourse = validStudents.some(s => !s.course || s.course.trim() === '');
-      if (missingCourse) {
-        throw new Error('Todos os alunos devem ter um curso informado (nome ou código)');
+        setImportErrors(errors);
+        setShowErrorsDialog(true);
+        throw new Error('Nenhum aluno válido encontrado.');
       }
 
       // Get all courses to match by name or code
@@ -306,86 +335,127 @@ export default function UploadData() {
 
       let insertedCount = 0;
       let updatedCount = 0;
-      const warnings: string[] = [];
 
-      // Insert new students
-      if (newStudents.length > 0) {
-        const studentsWithCourseId = newStudents.map(student => {
-          const courseKey = student.course.toLowerCase().trim();
-          const courseId = courseMap.get(courseKey);
-          
-          if (!courseId) {
-            warnings.push(`Curso não encontrado para aluno ${student.name}: ${student.course}`);
-            return null;
+      // Process new students
+      const studentsWithCourseId: any[] = [];
+      newStudents.forEach((student: any) => {
+        const courseKey = student.course.toLowerCase().trim();
+        const courseId = courseMap.get(courseKey);
+        
+        if (!courseId) {
+          errors.push({
+            row: student._rowIndex,
+            studentName: student.name,
+            studentId: student.student_id,
+            reason: `Curso não encontrado: "${student.course}"`
+          });
+          return;
+        }
+
+        studentsWithCourseId.push({
+          name: student.name,
+          email: student.email || null,
+          student_id: student.student_id,
+          course_id: courseId,
+          gender: student.gender || null,
+          average_income: student.average_income || null,
+          ethnicity: student.ethnicity || null
+        });
+      });
+
+      if (studentsWithCourseId.length > 0) {
+        const { error: insertError } = await supabase
+          .from('students')
+          .insert(studentsWithCourseId);
+
+        if (insertError) {
+          // If batch insert fails, try individual inserts to identify problematic records
+          for (let i = 0; i < studentsWithCourseId.length; i++) {
+            const student = studentsWithCourseId[i];
+            const originalStudent = newStudents.find(s => s.student_id === student.student_id) as any;
+            
+            const { error: singleError } = await supabase
+              .from('students')
+              .insert(student);
+            
+            if (singleError) {
+              errors.push({
+                row: originalStudent?._rowIndex || i + 2,
+                studentName: student.name,
+                studentId: student.student_id,
+                reason: singleError.message || 'Erro ao inserir'
+              });
+            } else {
+              insertedCount++;
+            }
           }
-
-          return {
-            name: student.name,
-            email: student.email || null,
-            student_id: student.student_id,
-            course_id: courseId,
-            gender: student.gender || null,
-            average_income: student.average_income || null,
-            ethnicity: student.ethnicity || null
-          };
-        }).filter(Boolean);
-
-        if (studentsWithCourseId.length > 0) {
-          const { error: insertError } = await supabase
-            .from('students')
-            .insert(studentsWithCourseId);
-
-          if (insertError) throw insertError;
+        } else {
           insertedCount = studentsWithCourseId.length;
         }
       }
 
       // Update existing students
-      if (studentsToUpdate.length > 0) {
-        for (const student of studentsToUpdate) {
-          const existingStudent = existingStudentMap.get(student.student_id);
-          const courseKey = student.course.toLowerCase().trim();
-          const courseId = courseMap.get(courseKey);
-          
-          if (!courseId) {
-            warnings.push(`Curso não encontrado para aluno ${student.name}: ${student.course}`);
-            continue;
-          }
-          
-          if (existingStudent) {
-            const { error: updateError } = await supabase
-              .from('students')
-              .update({
-                name: student.name,
-                email: student.email || null,
-                course_id: courseId,
-                gender: student.gender || null,
-                average_income: student.average_income || null,
-                ethnicity: student.ethnicity || null
-              })
-              .eq('id', existingStudent.id);
+      for (const student of studentsToUpdate as any[]) {
+        const existingStudent = existingStudentMap.get(student.student_id);
+        const courseKey = student.course.toLowerCase().trim();
+        const courseId = courseMap.get(courseKey);
+        
+        if (!courseId) {
+          errors.push({
+            row: student._rowIndex,
+            studentName: student.name,
+            studentId: student.student_id,
+            reason: `Curso não encontrado: "${student.course}"`
+          });
+          continue;
+        }
+        
+        if (existingStudent) {
+          const { error: updateError } = await supabase
+            .from('students')
+            .update({
+              name: student.name,
+              email: student.email || null,
+              course_id: courseId,
+              gender: student.gender || null,
+              average_income: student.average_income || null,
+              ethnicity: student.ethnicity || null
+            })
+            .eq('id', existingStudent.id);
 
-            if (updateError) throw updateError;
+          if (updateError) {
+            errors.push({
+              row: student._rowIndex,
+              studentName: student.name,
+              studentId: student.student_id,
+              reason: updateError.message || 'Erro ao atualizar'
+            });
+          } else {
             updatedCount++;
           }
         }
       }
 
-      const totalProcessed = insertedCount + updatedCount;
-
-      if (warnings.length > 0) {
-        console.warn('Warnings durante importação:', warnings);
+      // Store errors and show dialog if there are any
+      if (errors.length > 0) {
+        setImportErrors(errors);
+        setShowErrorsDialog(true);
       }
 
       toast({
-        title: "Alunos processados com sucesso",
-        description: `${insertedCount} novos, ${updatedCount} atualizados${warnings.length > 0 ? `. ${warnings.length} avisos (veja console)` : ''}`,
+        title: errors.length > 0 ? "Importação parcial" : "Alunos processados com sucesso",
+        description: `${insertedCount} novos, ${updatedCount} atualizados${errors.length > 0 ? `. ${errors.length} erros encontrados.` : ''}`,
+        variant: errors.length > 0 ? "destructive" : "default",
       });
       
       setUploadedData([]);
       setDataType(null);
     } catch (error) {
       console.error('Error importing students:', error);
+      if (errors.length > 0) {
+        setImportErrors(errors);
+        setShowErrorsDialog(true);
+      }
       toast({
         title: "Erro ao importar alunos",
         description: error instanceof Error ? error.message : "Verifique os dados e tente novamente",
@@ -974,6 +1044,61 @@ export default function UploadData() {
                 disabled={isProcessing}
               >
                 {isProcessing ? 'Salvando...' : 'Confirmar'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Import Errors Dialog */}
+        <Dialog open={showErrorsDialog} onOpenChange={setShowErrorsDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="text-destructive flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" />
+                Erros na Importação ({importErrors.length})
+              </DialogTitle>
+              <DialogDescription>
+                Os seguintes registros não puderam ser processados:
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-auto border rounded-md">
+              <table className="w-full text-sm">
+                <thead className="bg-muted sticky top-0">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Linha</th>
+                    <th className="text-left p-2 font-medium">Nome</th>
+                    <th className="text-left p-2 font-medium">Matrícula</th>
+                    <th className="text-left p-2 font-medium">Motivo do Erro</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {importErrors.map((error, index) => (
+                    <tr key={index} className="border-t hover:bg-muted/50">
+                      <td className="p-2">{error.row}</td>
+                      <td className="p-2">{error.studentName}</td>
+                      <td className="p-2">{error.studentId}</td>
+                      <td className="p-2 text-destructive">{error.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  // Copy errors to clipboard
+                  const text = importErrors.map(e => 
+                    `Linha ${e.row}: ${e.studentName} (${e.studentId}) - ${e.reason}`
+                  ).join('\n');
+                  navigator.clipboard.writeText(text);
+                  toast({ title: "Erros copiados para a área de transferência" });
+                }}
+              >
+                Copiar Erros
+              </Button>
+              <Button onClick={() => setShowErrorsDialog(false)}>
+                Fechar
               </Button>
             </DialogFooter>
           </DialogContent>
