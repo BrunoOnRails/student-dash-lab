@@ -1008,6 +1008,8 @@ const Dashboard = () => {
                         borderRadius: '6px',
                         color: 'hsl(var(--card-foreground))',
                       }}
+                      itemStyle={{ color: 'hsl(var(--card-foreground))' }}
+                      labelStyle={{ color: 'hsl(var(--card-foreground))' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
