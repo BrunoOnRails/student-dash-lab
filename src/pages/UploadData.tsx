@@ -488,12 +488,49 @@ export default function UploadData() {
         return Number(str) || 0;
       };
 
+      // Helper function to parse date from various formats including Excel serial numbers
+      const parseDate = (value: any): string => {
+        if (!value) return new Date().toISOString().split('T')[0];
+        
+        // If it's already a valid date string (YYYY-MM-DD format)
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return value;
+        }
+        
+        // If it's a number (Excel serial date), convert it
+        if (typeof value === 'number' && value > 0) {
+          // Excel serial date: days since 1899-12-30 (with Excel's leap year bug)
+          // JavaScript Date starts from 1970-01-01
+          const excelEpoch = new Date(1899, 11, 30); // December 30, 1899
+          const jsDate = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+          return jsDate.toISOString().split('T')[0];
+        }
+        
+        // If it's a string that looks like a number
+        const numValue = Number(value);
+        if (!isNaN(numValue) && numValue > 0) {
+          const excelEpoch = new Date(1899, 11, 30);
+          const jsDate = new Date(excelEpoch.getTime() + numValue * 24 * 60 * 60 * 1000);
+          return jsDate.toISOString().split('T')[0];
+        }
+        
+        // Try to parse as a date string
+        const parsedDate = new Date(value);
+        if (!isNaN(parsedDate.getTime())) {
+          return parsedDate.toISOString().split('T')[0];
+        }
+        
+        return new Date().toISOString().split('T')[0];
+      };
+
       const gradesToInsert: (Partial<GradeData> & { _rowIndex: number })[] = uploadedData.map((row, index) => {
         // Get the assessment name from Tipo column (e.g., "Prova 1", "Trabalho", "Seminário")
         const assessmentName = String(row.assessment_name || row.Assessment_Name || row.Avaliacao || row.avaliacao || row.Tipo || row.tipo || 'Avaliação').trim();
         
         // Extract assessment type from the name (e.g., "Prova 1" -> "Prova", "Trabalho" -> "Trabalho")
         const assessmentType = row.assessment_type || row.Assessment_Type || assessmentName.split(/\s+\d/)[0] || 'Prova';
+        
+        const rawDate = row.date_assigned || row.Date_Assigned || row.Data || row.data;
         
         return {
           student_id: String(row.student_id || row.Student_ID || row.Matricula || row.matricula || '').trim(),
@@ -502,7 +539,7 @@ export default function UploadData() {
           assessment_name: assessmentName,
           grade: parseDecimal(row.grade || row.Grade || row.Nota || row.nota),
           max_grade: parseDecimal(row.max_grade || row.Max_Grade || row.Nota_Maxima || row.nota_maxima || 10),
-          date_assigned: row.date_assigned || row.Date_Assigned || row.Data || row.data || new Date().toISOString().split('T')[0],
+          date_assigned: parseDate(rawDate),
           _rowIndex: index + 2, // +2 for header row and 1-based index
         };
       });
