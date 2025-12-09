@@ -83,7 +83,7 @@ const Dashboard = () => {
       if (coursesError) throw coursesError;
       setCourses(coursesData || []);
 
-      // Fetch subjects
+      // Fetch subjects based on course filter
       let subjectsQuery = supabase
         .from('subjects')
         .select('id, name, code, course_id')
@@ -98,18 +98,10 @@ const Dashboard = () => {
       if (subjectsError) throw subjectsError;
       setSubjects(subjectsData || []);
 
-      // Reset subject selection if the selected subject is not in the filtered list
-      const validSubject = selectedSubject === 'all' || subjectsData?.find(s => s.id === selectedSubject);
-      const effectiveSubject = validSubject ? selectedSubject : 'all';
-      
-      if (!validSubject && selectedSubject !== 'all') {
-        setSelectedSubject('all');
-      }
-
-      // Build subject filter
-      const subjectFilter = effectiveSubject === 'all' ? 
-        (subjectsData?.map(s => s.id) || []) : 
-        [effectiveSubject];
+      // Build subject filter based on fetched subjects
+      const subjectIds = subjectsData?.map(s => s.id) || [];
+      const subjectFilter = selectedSubject === 'all' ? subjectIds : 
+        (subjectIds.includes(selectedSubject) ? [selectedSubject] : subjectIds);
 
       // Fetch students count with demographic data - filtered by course
       let studentsQuery = supabase
