@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,9 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts';
-import { BookOpen, Users, TrendingUp, Award, BarChart3 } from 'lucide-react';
+import { BookOpen, Users, TrendingUp, Award, BarChart3, Search, X, Check } from 'lucide-react';
 import Header from '@/components/Header';
+import { cn } from '@/lib/utils';
 
 interface DashboardData {
   totalStudents: number;
@@ -35,6 +39,16 @@ interface Course {
   code: string;
 }
 
+interface Student {
+  id: string;
+  name: string;
+  student_id: string;
+  course_id: string;
+  gender: string | null;
+  average_income: number | null;
+  ethnicity: string | null;
+}
+
 interface AssessmentDistribution {
   assessment_type: string;
   total_points: number;
@@ -59,16 +73,41 @@ const Dashboard = () => {
   });
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedCourse, setSelectedCourse] = useState<string>('all');
+  const [selectedStudent, setSelectedStudent] = useState<string>('all');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentPopoverOpen, setStudentPopoverOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [distributionData, setDistributionData] = useState<AssessmentDistribution[]>([]);
+
+  // Filter students for the combobox based on course filter and search
+  const filteredStudentsForCombobox = useMemo(() => {
+    let filtered = allStudents;
+    if (selectedCourse !== 'all') {
+      filtered = filtered.filter(s => s.course_id === selectedCourse);
+    }
+    if (studentSearch) {
+      const searchLower = studentSearch.toLowerCase();
+      filtered = filtered.filter(s => 
+        s.name.toLowerCase().includes(searchLower) || 
+        s.student_id.toLowerCase().includes(searchLower)
+      );
+    }
+    return filtered;
+  }, [allStudents, selectedCourse, studentSearch]);
+
+  const selectedStudentData = useMemo(() => {
+    if (selectedStudent === 'all') return null;
+    return allStudents.find(s => s.id === selectedStudent) || null;
+  }, [allStudents, selectedStudent]);
 
   useEffect(() => {
     if (user) {
       fetchDashboardData();
     }
-  }, [user, selectedSubject, selectedCourse]);
+  }, [user, selectedSubject, selectedCourse, selectedStudent]);
 
   const fetchDashboardData = async () => {
     try {
@@ -103,31 +142,45 @@ const Dashboard = () => {
       const subjectFilter = selectedSubject === 'all' ? subjectIds : 
         (subjectIds.includes(selectedSubject) ? [selectedSubject] : subjectIds);
 
-      // Fetch students count with demographic data - filtered by course
-      let studentsQuery = supabase
+      // Fetch all students with demographic data
+      const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select('id, gender, average_income, ethnicity, course_id');
-
-      if (selectedCourse !== 'all') {
-        studentsQuery = studentsQuery.eq('course_id', selectedCourse);
-      }
-
-      const { data: allStudents, error: studentsError } = await studentsQuery;
+        .select('id, name, student_id, gender, average_income, ethnicity, course_id');
 
       if (studentsError) throw studentsError;
-      const studentsCount = allStudents?.length || 0;
+      setAllStudents(studentsData || []);
+
+      // Filter students based on course filter
+      let filteredStudents = studentsData || [];
+      if (selectedCourse !== 'all') {
+        filteredStudents = filteredStudents.filter(s => s.course_id === selectedCourse);
+      }
+
+      // If student filter is active, filter to just that student
+      if (selectedStudent !== 'all') {
+        filteredStudents = filteredStudents.filter(s => s.id === selectedStudent);
+      }
+
+      const studentsCount = filteredStudents.length;
 
       // If no subjects, set empty grades data
       let gradesData: any[] = [];
       
       if (subjectFilter.length > 0) {
         // Fetch grades with student info - filtered by subject only (subject already filtered by course)
-        const { data, error: gradesError } = await supabase
+        let gradesQuery = supabase
           .from('grades')
           .select('*, students(id, name, student_id, course_id), subjects(id, name, course_id)')
           .in('subject_id', subjectFilter)
           .order('date_assigned', { ascending: false })
           .limit(1000);
+
+        // Apply student filter if selected
+        if (selectedStudent !== 'all') {
+          gradesQuery = gradesQuery.eq('student_id', selectedStudent);
+        }
+
+        const { data, error: gradesError } = await gradesQuery;
 
         if (gradesError) {
           console.error('Error fetching grades:', gradesError);
@@ -195,8 +248,8 @@ const Dashboard = () => {
           Number(((gradesList as number[]).reduce((sum, grade) => sum + grade, 0) / (gradesList as number[]).length).toFixed(2)) : 0
       }));
 
-      // Gender distribution
-      const genderGroups = (allStudents || []).reduce((acc, student) => {
+      // Gender distribution - use filteredStudents
+      const genderGroups = filteredStudents.reduce((acc, student) => {
         const gender = student.gender || 'Não informado';
         acc[gender] = (acc[gender] || 0) + 1;
         return acc;
@@ -207,8 +260,8 @@ const Dashboard = () => {
         count
       }));
 
-      // Race distribution
-      const raceGroups = (allStudents || []).reduce((acc, student) => {
+      // Race distribution - use filteredStudents
+      const raceGroups = filteredStudents.reduce((acc, student) => {
         const race = student.ethnicity || 'Não informado';
         acc[race] = (acc[race] || 0) + 1;
         return acc;
@@ -219,7 +272,7 @@ const Dashboard = () => {
         count
       }));
 
-      // Income distribution
+      // Income distribution - use filteredStudents
       const incomeRanges = [
         { range: 'Até 1000', min: 0, max: 1000 },
         { range: '1000-2000', min: 1000, max: 2000 },
@@ -228,7 +281,7 @@ const Dashboard = () => {
         { range: 'Acima de 5000', min: 5000, max: Infinity }
       ];
 
-      const studentsWithIncome = (allStudents || []).filter(s => s.average_income != null);
+      const studentsWithIncome = filteredStudents.filter(s => s.average_income != null);
       const incomeDistribution = incomeRanges.map(range => ({
         range: range.range,
         count: studentsWithIncome.filter(student => 
@@ -284,6 +337,10 @@ const Dashboard = () => {
       query = query.eq("subject_id", selectedSubject);
     }
 
+    if (selectedStudent !== "all") {
+      query = query.eq("student_id", selectedStudent);
+    }
+
     const { data, error } = await query;
 
     if (error) {
@@ -334,11 +391,12 @@ const Dashboard = () => {
             <p className="text-lg text-muted-foreground mt-2">Análise completa de desempenho acadêmico</p>
           </div>
           
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <div className="w-56">
               <Select value={selectedCourse} onValueChange={(value) => {
                 setSelectedCourse(value);
                 setSelectedSubject('all');
+                setSelectedStudent('all');
               }}>
                 <SelectTrigger className="bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors">
                   <SelectValue placeholder="Filtrar por curso" />
@@ -368,6 +426,91 @@ const Dashboard = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="w-72">
+              <Popover open={studentPopoverOpen} onOpenChange={setStudentPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={studentPopoverOpen}
+                    className="w-full justify-between bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors"
+                  >
+                    {selectedStudent === 'all' ? (
+                      <span className="flex items-center gap-2">
+                        <Search className="h-4 w-4 text-muted-foreground" />
+                        Filtrar por aluno
+                      </span>
+                    ) : (
+                      <span className="truncate">
+                        {selectedStudentData?.name} ({selectedStudentData?.student_id})
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-0" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Buscar por nome ou matrícula..." 
+                      value={studentSearch}
+                      onValueChange={setStudentSearch}
+                    />
+                    <CommandList>
+                      <CommandEmpty>Nenhum aluno encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="all"
+                          onSelect={() => {
+                            setSelectedStudent('all');
+                            setStudentSearch('');
+                            setStudentPopoverOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedStudent === 'all' ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          Todos os alunos
+                        </CommandItem>
+                        {filteredStudentsForCombobox.slice(0, 50).map((student) => (
+                          <CommandItem
+                            key={student.id}
+                            value={`${student.name} ${student.student_id}`}
+                            onSelect={() => {
+                              setSelectedStudent(student.id);
+                              setStudentSearch('');
+                              setStudentPopoverOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedStudent === student.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col">
+                              <span className="truncate">{student.name}</span>
+                              <span className="text-xs text-muted-foreground">{student.student_id}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {selectedStudent !== 'all' && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setSelectedStudent('all')}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
