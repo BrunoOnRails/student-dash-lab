@@ -44,6 +44,14 @@ interface ImportError {
   reason: string;
 }
 
+interface GradeImportError {
+  row: number;
+  studentId: string;
+  subject: string;
+  assessmentName: string;
+  reason: string;
+}
+
 export default function UploadData() {
   const [uploadedData, setUploadedData] = useState<any[]>([]);
   const [dataType, setDataType] = useState<'students' | 'grades' | 'courses' | null>(null);
@@ -55,6 +63,8 @@ export default function UploadData() {
   const [showForceTypeDialog, setShowForceTypeDialog] = useState(false);
   const [importErrors, setImportErrors] = useState<ImportError[]>([]);
   const [showErrorsDialog, setShowErrorsDialog] = useState(false);
+  const [gradeImportErrors, setGradeImportErrors] = useState<GradeImportError[]>([]);
+  const [showGradeErrorsDialog, setShowGradeErrorsDialog] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -468,6 +478,8 @@ export default function UploadData() {
 
   const processGrades = async () => {
     setIsProcessing(true);
+    const errors: GradeImportError[] = [];
+    
     try {
       // Helper function to convert Brazilian decimal format (comma) to JavaScript format (dot)
       const parseDecimal = (value: any): number => {
@@ -476,7 +488,7 @@ export default function UploadData() {
         return Number(str) || 0;
       };
 
-      const gradesToInsert: Partial<GradeData>[] = uploadedData.map(row => {
+      const gradesToInsert: (Partial<GradeData> & { _rowIndex: number })[] = uploadedData.map((row, index) => {
         // Get the assessment name from Tipo column (e.g., "Prova 1", "Trabalho", "Seminário")
         const assessmentName = String(row.assessment_name || row.Assessment_Name || row.Avaliacao || row.avaliacao || row.Tipo || row.tipo || 'Avaliação').trim();
         
@@ -484,20 +496,45 @@ export default function UploadData() {
         const assessmentType = row.assessment_type || row.Assessment_Type || assessmentName.split(/\s+\d/)[0] || 'Prova';
         
         return {
-          student_id: row.student_id || row.Student_ID || row.Matricula || row.matricula,
-          subject: row.subject || row.Subject || row.Disciplina || row.disciplina || row.subject_name || row.Subject_Name || row.nome_disciplina || row.subject_code || row.Subject_Code || row.codigo_disciplina,
+          student_id: String(row.student_id || row.Student_ID || row.Matricula || row.matricula || '').trim(),
+          subject: String(row.subject || row.Subject || row.Disciplina || row.disciplina || row.subject_name || row.Subject_Name || row.nome_disciplina || row.subject_code || row.Subject_Code || row.codigo_disciplina || '').trim(),
           assessment_type: assessmentType,
           assessment_name: assessmentName,
           grade: parseDecimal(row.grade || row.Grade || row.Nota || row.nota),
           max_grade: parseDecimal(row.max_grade || row.Max_Grade || row.Nota_Maxima || row.nota_maxima || 10),
           date_assigned: row.date_assigned || row.Date_Assigned || row.Data || row.data || new Date().toISOString().split('T')[0],
+          _rowIndex: index + 2, // +2 for header row and 1-based index
         };
       });
 
-      // Validate required fields
-      const missingSubject = gradesToInsert.some(g => !g.subject);
-      if (missingSubject) {
-        throw new Error('Todas as notas devem ter uma disciplina informada (nome ou código)');
+      // Validate and track errors for missing fields
+      const validatedGrades: (Partial<GradeData> & { _rowIndex: number })[] = [];
+      gradesToInsert.forEach(grade => {
+        if (!grade.student_id) {
+          errors.push({
+            row: grade._rowIndex,
+            studentId: '(sem matrícula)',
+            subject: grade.subject || '(sem disciplina)',
+            assessmentName: grade.assessment_name || '',
+            reason: 'Matrícula do aluno não informada'
+          });
+        } else if (!grade.subject) {
+          errors.push({
+            row: grade._rowIndex,
+            studentId: grade.student_id,
+            subject: '(sem disciplina)',
+            assessmentName: grade.assessment_name || '',
+            reason: 'Disciplina não informada'
+          });
+        } else {
+          validatedGrades.push(grade);
+        }
+      });
+
+      if (validatedGrades.length === 0 && errors.length > 0) {
+        setGradeImportErrors(errors);
+        setShowGradeErrorsDialog(true);
+        throw new Error('Nenhuma nota válida encontrada. Verifique os erros.');
       }
 
       // Get all subjects from the current user to match by name or code
@@ -518,62 +555,82 @@ export default function UploadData() {
       });
 
       // Get student IDs to validate they exist
-      const studentIds = gradesToInsert.map(g => g.student_id).filter(Boolean);
+      const studentIds = validatedGrades.map(g => g.student_id).filter(Boolean) as string[];
       const { data: students } = await supabase
         .from('students')
         .select('id, student_id')
         .in('student_id', studentIds);
 
-      if (!students || students.length === 0) {
-        throw new Error('Nenhum aluno encontrado com as matrículas fornecidas');
-      }
-
-      const studentMap = new Map(students.map(s => [s.student_id, s.id]));
+      const studentMap = new Map(students?.map(s => [s.student_id, s.id]) || []);
       
-      const validGrades = gradesToInsert
-        .filter(g => g.student_id && g.subject && studentMap.has(g.student_id))
-        .map(g => {
-          const subjectKey = g.subject!.toLowerCase().trim();
-          const subjectId = subjectMap.get(subjectKey);
-          
-          if (!subjectId) {
-            console.warn(`Disciplina não encontrada: ${g.subject}`);
-            return null;
-          }
+      // Process grades and track errors
+      const processedGrades: Array<{
+        student_id: string;
+        subject_id: string;
+        assessment_type: string;
+        assessment_name: string;
+        grade: number;
+        max_grade: number;
+        date_assigned: string;
+        _rowIndex: number;
+        _originalStudentId: string;
+        _subjectName: string;
+      }> = [];
 
-          return {
-            student_id: studentMap.get(g.student_id!)!,
-            subject_id: subjectId,
-            assessment_type: g.assessment_type || 'Prova',
-            assessment_name: g.assessment_name || 'Avaliação',
-            grade: g.grade || 0,
-            max_grade: g.max_grade || 10,
-            date_assigned: g.date_assigned || new Date().toISOString().split('T')[0],
-          };
-        })
-        .filter(Boolean) as Array<{
-          student_id: string;
-          subject_id: string;
-          assessment_type: string;
-          assessment_name: string;
-          grade: number;
-          max_grade: number;
-          date_assigned: string;
-        }>;
+      validatedGrades.forEach(g => {
+        const subjectKey = g.subject!.toLowerCase().trim();
+        const subjectId = subjectMap.get(subjectKey);
+        const studentDbId = studentMap.get(g.student_id!);
+        
+        if (!studentDbId) {
+          errors.push({
+            row: g._rowIndex,
+            studentId: g.student_id!,
+            subject: g.subject || '',
+            assessmentName: g.assessment_name || '',
+            reason: `Aluno não encontrado (matrícula: ${g.student_id})`
+          });
+          return;
+        }
+        
+        if (!subjectId) {
+          errors.push({
+            row: g._rowIndex,
+            studentId: g.student_id!,
+            subject: g.subject || '',
+            assessmentName: g.assessment_name || '',
+            reason: `Disciplina não encontrada: "${g.subject}"`
+          });
+          return;
+        }
 
-      if (validGrades.length === 0) {
-        throw new Error('Nenhuma nota válida encontrada. Verifique se as disciplinas informadas existem no seu cadastro.');
+        processedGrades.push({
+          student_id: studentDbId,
+          subject_id: subjectId,
+          assessment_type: g.assessment_type || 'Prova',
+          assessment_name: g.assessment_name || 'Avaliação',
+          grade: g.grade || 0,
+          max_grade: g.max_grade || 10,
+          date_assigned: g.date_assigned || new Date().toISOString().split('T')[0],
+          _rowIndex: g._rowIndex,
+          _originalStudentId: g.student_id!,
+          _subjectName: g.subject!,
+        });
+      });
+
+      if (processedGrades.length === 0) {
+        if (errors.length > 0) {
+          setGradeImportErrors(errors);
+          setShowGradeErrorsDialog(true);
+        }
+        throw new Error('Nenhuma nota válida encontrada. Verifique se os alunos e disciplinas existem no sistema.');
       }
 
       // Check which grades already exist
-      const gradeKeys = validGrades.map(g => 
-        `${g.student_id}_${g.subject_id}_${g.assessment_name}_${g.assessment_type}_${g.date_assigned}`
-      );
-      
       const { data: existingGrades } = await supabase
         .from('grades')
         .select('student_id, subject_id, assessment_name, assessment_type, date_assigned, id, grade')
-        .in('student_id', validGrades.map(g => g.student_id));
+        .in('student_id', processedGrades.map(g => g.student_id));
 
       const existingGradeMap = new Map(
         existingGrades?.map(g => [
@@ -582,29 +639,52 @@ export default function UploadData() {
         ]) || []
       );
 
-      const newGrades = validGrades.filter(grade => 
+      const newGrades = processedGrades.filter(grade => 
         !existingGradeMap.has(`${grade.student_id}_${grade.subject_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`)
       );
       
-      const gradesToUpdate = validGrades.filter(grade => 
+      const gradesToUpdate = processedGrades.filter(grade => 
         existingGradeMap.has(`${grade.student_id}_${grade.subject_id}_${grade.assessment_name}_${grade.assessment_type}_${grade.date_assigned}`)
       );
 
       let insertedCount = 0;
       let updatedCount = 0;
 
-      // Insert new grades in batches
-      const BATCH_SIZE = 500;
+      // Insert new grades in batches with individual error tracking
+      const BATCH_SIZE = 100;
       if (newGrades.length > 0) {
         for (let i = 0; i < newGrades.length; i += BATCH_SIZE) {
           const batch = newGrades.slice(i, i + BATCH_SIZE);
+          const batchToInsert = batch.map(({ _rowIndex, _originalStudentId, _subjectName, ...rest }) => rest);
+          
           const { error: insertError } = await supabase
             .from('grades')
-            .insert(batch);
+            .insert(batchToInsert);
 
-          if (insertError) throw insertError;
+          if (insertError) {
+            // If batch insert fails, try individual inserts
+            for (const grade of batch) {
+              const { _rowIndex, _originalStudentId, _subjectName, ...gradeData } = grade;
+              const { error: singleError } = await supabase
+                .from('grades')
+                .insert(gradeData);
+              
+              if (singleError) {
+                errors.push({
+                  row: _rowIndex,
+                  studentId: _originalStudentId,
+                  subject: _subjectName,
+                  assessmentName: grade.assessment_name,
+                  reason: singleError.message || 'Erro ao inserir nota'
+                });
+              } else {
+                insertedCount++;
+              }
+            }
+          } else {
+            insertedCount += batch.length;
+          }
         }
-        insertedCount = newGrades.length;
       }
 
       // Update existing grades
@@ -622,23 +702,43 @@ export default function UploadData() {
               })
               .eq('id', existingGrade.id);
 
-            if (updateError) throw updateError;
-            updatedCount++;
+            if (updateError) {
+              errors.push({
+                row: grade._rowIndex,
+                studentId: grade._originalStudentId,
+                subject: grade._subjectName,
+                assessmentName: grade.assessment_name,
+                reason: updateError.message || 'Erro ao atualizar nota'
+              });
+            } else {
+              updatedCount++;
+            }
           }
         }
       }
 
+      // Show errors dialog if there are any
+      if (errors.length > 0) {
+        setGradeImportErrors(errors);
+        setShowGradeErrorsDialog(true);
+      }
+
       const totalProcessed = insertedCount + updatedCount;
-      const ignoredCount = validGrades.length - totalProcessed;
 
       toast({
-        title: "Notas processadas com sucesso",
-        description: `${insertedCount} novas, ${updatedCount} atualizadas${ignoredCount > 0 ? `, ${ignoredCount} ignoradas` : ''}`,
+        title: errors.length > 0 ? "Importação parcial" : "Notas processadas com sucesso",
+        description: `${insertedCount} novas, ${updatedCount} atualizadas${errors.length > 0 ? `. ${errors.length} erros encontrados.` : ''}`,
+        variant: errors.length > 0 ? "destructive" : "default",
       });
       
       setUploadedData([]);
       setDataType(null);
     } catch (error) {
+      console.error('Error importing grades:', error);
+      if (errors.length > 0) {
+        setGradeImportErrors(errors);
+        setShowGradeErrorsDialog(true);
+      }
       toast({
         title: "Erro ao importar notas",
         description: error instanceof Error ? error.message : "Verifique os dados e tente novamente",
@@ -1098,6 +1198,62 @@ export default function UploadData() {
                 Copiar Erros
               </Button>
               <Button onClick={() => setShowErrorsDialog(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Grade Import Errors Dialog */}
+        <Dialog open={showGradeErrorsDialog} onOpenChange={setShowGradeErrorsDialog}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="text-destructive flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" />
+                Erros na Importação de Notas ({gradeImportErrors.length})
+              </DialogTitle>
+              <DialogDescription>
+                Os seguintes registros de notas não puderam ser processados:
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-auto border rounded-md">
+              <table className="w-full text-sm">
+                <thead className="bg-muted sticky top-0">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Linha</th>
+                    <th className="text-left p-2 font-medium">Matrícula</th>
+                    <th className="text-left p-2 font-medium">Disciplina</th>
+                    <th className="text-left p-2 font-medium">Avaliação</th>
+                    <th className="text-left p-2 font-medium">Motivo do Erro</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gradeImportErrors.map((error, index) => (
+                    <tr key={index} className="border-t hover:bg-muted/50">
+                      <td className="p-2">{error.row}</td>
+                      <td className="p-2">{error.studentId}</td>
+                      <td className="p-2">{error.subject}</td>
+                      <td className="p-2">{error.assessmentName}</td>
+                      <td className="p-2 text-destructive">{error.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  const text = gradeImportErrors.map(e => 
+                    `Linha ${e.row}: ${e.studentId} | ${e.subject} | ${e.assessmentName} - ${e.reason}`
+                  ).join('\n');
+                  navigator.clipboard.writeText(text);
+                  toast({ title: "Erros copiados para a área de transferência" });
+                }}
+              >
+                Copiar Erros
+              </Button>
+              <Button onClick={() => setShowGradeErrorsDialog(false)}>
                 Fechar
               </Button>
             </DialogFooter>
