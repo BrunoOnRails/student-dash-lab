@@ -647,8 +647,15 @@ const Dashboard = () => {
                       backgroundColor: 'hsl(var(--popover))', 
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
-                      boxShadow: 'var(--shadow-elegant)'
+                      boxShadow: 'var(--shadow-elegant)',
+                      color: 'hsl(var(--popover-foreground))',
+                      maxWidth: '300px',
+                      whiteSpace: 'normal',
                     }}
+                    itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                    labelStyle={{ color: 'hsl(var(--popover-foreground))', fontWeight: 'bold', marginBottom: '4px' }}
+                    formatter={(value: number) => [`Média: ${value.toFixed(2)}`, '']}
+                    labelFormatter={(label: string) => label}
                   />
                   <Bar 
                     dataKey="average" 
