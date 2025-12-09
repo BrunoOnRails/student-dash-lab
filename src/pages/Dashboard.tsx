@@ -64,6 +64,11 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [distributionData, setDistributionData] = useState<AssessmentDistribution[]>([]);
 
+  // Reset selected subject when course changes
+  useEffect(() => {
+    setSelectedSubject('all');
+  }, [selectedCourse]);
+
   useEffect(() => {
     if (user) {
       fetchDashboardData();
@@ -335,10 +340,7 @@ const Dashboard = () => {
           
           <div className="flex gap-4">
             <div className="w-56">
-              <Select value={selectedCourse} onValueChange={(value) => {
-                setSelectedCourse(value);
-                setSelectedSubject('all');
-              }}>
+              <Select value={selectedCourse} onValueChange={setSelectedCourse}>
                 <SelectTrigger className="bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors">
                   <SelectValue placeholder="Filtrar por curso" />
                 </SelectTrigger>
